@@ -16,7 +16,7 @@ puesto = usuario["puesto"]
 
 # Operadores y admin pueden reportar producción
 # perfil: 1=admin, 2=operador, 3=supervisor
-if st.session_state.perfil not in (1, 2, 3):
+if perfil not in (1, 2, 3):
     st.error("No tiene permiso para acceder a esta sección")
     st.stop()
 
