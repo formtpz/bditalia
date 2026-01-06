@@ -1,12 +1,9 @@
 import streamlit as st
 from db import get_connection
-import hashlib
 
 def login_usuario(cedula, password):
     conn = get_connection()
     cur = conn.cursor()
-
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
 
     cur.execute("""
         SELECT cedula, nombre_completo, perfil, puesto
@@ -14,7 +11,7 @@ def login_usuario(cedula, password):
         WHERE cedula = %s
           AND "contraseña" = %s
           AND estado = 'activo'
-    """, (cedula, password_hash))
+    """, (cedula.strip(), password.strip()))
 
     user = cur.fetchone()
 
