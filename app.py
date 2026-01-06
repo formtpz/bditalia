@@ -1,3 +1,7 @@
+# --- Streamlit Page ---
+# title: Recurso Humano
+# icon: 👥
+
 import streamlit as st
 from auth import login_usuario
 
@@ -23,7 +27,5 @@ if not usuario:
 else:
     st.success(f"Bienvenido {usuario['nombre']}")
     st.info("Use el menú lateral para navegar")
-# --- Streamlit Page ---
-# title: Recurso Humano
-# icon: 👥
+
 
