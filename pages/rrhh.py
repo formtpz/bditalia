@@ -31,6 +31,7 @@ modo = st.radio(
 # Modo: Personal Existente
 # =========================
 if modo == "Personal Existente":
+    # Cargar personal
     df_personal = pd.read_sql("""
         SELECT
             id,
@@ -47,18 +48,38 @@ if modo == "Personal Existente":
     """, conn)
 
     st.subheader("📋 Personal existente")
-    st.info("Edite los valores directamente en la tabla y luego presione **Guardar cambios**")
+    st.info("Seleccione un empleado para editar sus datos")
 
-    df_editado = st.data_editor(
-        df_personal,
-        use_container_width=True,
-        num_rows="fixed",
-        disabled=["id", "fecha_vinculacion"]
+    # Selectbox para elegir persona
+    empleado_seleccionado = st.selectbox(
+        "Elija el empleado",
+        df_personal["nombre_completo"]
     )
 
-    if st.button("💾 Guardar cambios"):
+    # Filtrar los datos del empleado seleccionado
+    df_empleado = df_personal[df_personal["nombre_completo"] == empleado_seleccionado].iloc[0]
+
+    # Formulario para editar solo ese empleado
+    with st.form("editar_personal"):
+        cedula = st.text_input("Cédula", value=df_empleado["cedula"])
+        nombre = st.text_input("Nombre completo", value=df_empleado["nombre_completo"])
+        puesto = st.text_input("Puesto", value=df_empleado["puesto"])
+        perfil = st.number_input(
+            "Perfil (1=Admin, 2=Operador, 3=Supervisor)",
+            min_value=1,
+            max_value=3,
+            value=int(df_empleado["perfil"]),
+            step=1
+        )
+        horario = st.text_input("Horario", value=df_empleado["horario"])
+        estado = st.selectbox("Estado", ["activo", "inactivo"], index=0 if df_empleado["estado"]=="activo" else 1)
+        fecha_desvinc = st.date_input("Fecha de desvinculación", value=df_empleado["fecha_desvinculacion"] if pd.notnull(df_empleado["fecha_desvinculacion"]) else None)
+
+        guardar = st.form_submit_button("💾 Guardar cambios")
+
+    if guardar:
         cur = conn.cursor()
-        for _, row in df_editado.iterrows():
+        try:
             cur.execute("""
                 UPDATE personal SET
                     cedula = %s,
@@ -70,18 +91,20 @@ if modo == "Personal Existente":
                     fecha_desvinculacion = %s
                 WHERE id = %s
             """, (
-                row["cedula"],
-                row["nombre_completo"],
-                row["puesto"],
-                int(row["perfil"]),
-                row["horario"],
-                row["estado"],
-                row["fecha_desvinculacion"],
-                int(row["id"])
+                cedula,
+                nombre,
+                puesto,
+                int(perfil),
+                horario,
+                estado,
+                fecha_desvinc,
+                int(df_empleado["id"])
             ))
-        conn.commit()
-        st.success("Cambios guardados correctamente")
-        st.rerun()  # rerun para actualizar la tabla
+            conn.commit()
+            st.success("Cambios guardados correctamente")
+        except Exception as e:
+            conn.rollback()
+            st.error(f"Error al guardar cambios: {e}")
 
 # =========================
 # Modo: Crear Nuevo Personal
@@ -130,7 +153,6 @@ elif modo == "Crear Nuevo Personal":
             ))
             conn.commit()
             st.success("Personal creado correctamente")
-            st.experimental_rerun()
         except Exception as e:
             conn.rollback()
             st.error(f"Error al crear personal: {e}")
