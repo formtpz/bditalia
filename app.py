@@ -3,17 +3,7 @@ from auth import login_usuario
 
 st.set_page_config(page_title="Sistema de Reportes", layout="centered")
 
-st.markdown("""
-<style>
-section[data-testid="stSidebar"] nav a {
-    font-size: 20px !important;
-    font-weight: 600;
-}
-section[data-testid="stSidebar"] h2 {
-    font-size: 18px !important;
-}
-</style>
-""", unsafe_allow_html=True)
+
 
 # =========================
 # LOGIN
