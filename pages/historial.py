@@ -11,7 +11,7 @@ if not st.session_state.get("authenticated"):
     st.stop()
 
 cedula = st.session_state.get("cedula")
-perfil = st.session_state.get("perfil"])
+perfil = st.session_state.get("perfil")
 
 conn = get_connection()
 
