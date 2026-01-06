@@ -100,7 +100,6 @@ if submit:
                 horas,
                 proceso_id,
                 zona,
-                area,
                 produccion,
                 aprobados,
                 rechazados,
@@ -109,7 +108,6 @@ if submit:
             )
             VALUES (
                 'produccion',
-                %s,
                 %s,
                 %s,
                 %s,
@@ -133,7 +131,6 @@ if submit:
             horas,
             proceso_id,
             zona,
-            area,
             produccion,
             aprobados,
             rechazados,
