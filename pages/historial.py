@@ -36,7 +36,7 @@ SELECT
     zona,
     aprobados,
     rechazados,
-    (aprobados + rechazados) AS produccion,
+    produccion,
     observaciones
 FROM reportes
 WHERE tipo_reporte = 'produccion'
