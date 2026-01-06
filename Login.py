@@ -25,7 +25,9 @@ if not usuario:
         login_usuario(cedula, password)
 
 else:
+    st.title("Acceso Correcto")
     st.success(f"Bienvenido {usuario['nombre']}")
     st.info("Use el menú lateral para navegar")
+    st.image("logo.png", use_container_width=True)
 
 
