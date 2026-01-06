@@ -13,6 +13,7 @@ if not usuario:
 
 perfil = usuario["perfil"]
 puesto = usuario["puesto"]
+cedula = usuario["cedula"]
 
 # Operadores y admin pueden reportar producción
 # perfil: 1=admin, 2=operador, 3=supervisor
