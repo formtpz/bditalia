@@ -6,12 +6,13 @@ st.title("📈 Historial de Reportes")
 
 usuario = st.session_state.get("usuario")
 
-if not st.session_state.get("authenticated"):
+if not usuario:
     st.warning("Debe iniciar sesión")
     st.stop()
 
-cedula = st.session_state.get("cedula")
-perfil = st.session_state.get("perfil")
+perfil = usuario["perfil"]
+puesto = usuario["puesto"]
+cedula = usuario["cedula"]
 
 conn = get_connection()
 
