@@ -16,11 +16,13 @@ def login_usuario(cedula, password):
     user = cur.fetchone()
 
     if user:
-        st.session_state.authenticated = True
-        st.session_state.cedula = user[0]
-        st.session_state.nombre = user[1]
-        st.session_state.perfil = user[2]
-        st.session_state.puesto = user[3]
-        st.rerun()
+    st.session_state["usuario"] = {
+        "cedula": user[0],
+        "nombre": user[1],
+        "perfil": user[2],
+        "puesto": user[3]
+    }
+    st.rerun()
+    
     else:
         st.error("Credenciales incorrectas")
