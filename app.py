@@ -3,6 +3,21 @@ from auth import login_usuario
 
 st.set_page_config(page_title="Sistema de Reportes", layout="centered")
 
+st.markdown("""
+<style>
+/* Texto de los items del menú */
+section[data-testid="stSidebar"] nav a {
+    font-size: 16px !important;
+    font-weight: 600;
+}
+
+/* Título "Pages" */
+section[data-testid="stSidebar"] h2 {
+    font-size: 18px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
