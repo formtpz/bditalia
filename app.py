@@ -23,5 +23,7 @@ if not usuario:
 else:
     st.success(f"Bienvenido {usuario['nombre']}")
     st.info("Use el menú lateral para navegar")
-    st.title("Menú")
+# --- Streamlit Page ---
+# title: Recurso Humano
+# icon: 👥
 
