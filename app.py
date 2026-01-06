@@ -5,23 +5,22 @@ st.set_page_config(page_title="Sistema de Reportes", layout="centered")
 
 st.markdown("""
 <style>
-/* Texto de los items del menú */
 section[data-testid="stSidebar"] nav a {
     font-size: 20px !important;
     font-weight: 600;
 }
-
-/* Título "Pages" */
 section[data-testid="stSidebar"] h2 {
     font-size: 18px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+# =========================
+# LOGIN
+# =========================
+usuario = st.session_state.get("usuario")
 
-if not st.session_state.authenticated:
+if not usuario:
     st.image("logo.png", use_container_width=True)
     st.title("Ingreso al sistema")
 
@@ -30,6 +29,8 @@ if not st.session_state.authenticated:
 
     if st.button("Ingresar"):
         login_usuario(cedula, password)
+
 else:
-    st.success(f"Bienvenido {st.session_state.nombre}")
+    st.success(f"Bienvenido {usuario['nombre']}")
     st.info("Use el menú lateral para navegar")
+
