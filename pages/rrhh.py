@@ -127,10 +127,10 @@ if crear:
             INSERT INTO personal (
                 cedula, nombre_completo, contraseña, puesto,
                 perfil, estado, fecha_vinculacion
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             cedula_n, nombre_n, password_n,
-            puesto_n, perfil_n, estado_n, fecha_vinc_n
+            puesto_n, perfil_n, horario_n, estado_n, fecha_vinc_n
         ))
         conn.commit()
         st.success("Personal creado correctamente")
