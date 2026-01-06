@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Cerrar sesión",
+    page_title="Sesión Cerrada Satisfactoriamente",
     page_icon="🚪",
     layout="centered"
 )
@@ -23,7 +23,6 @@ if conn:
 # =========================
 st.session_state.clear()
 
-st.success("Sesión cerrada correctamente")
 st.info("Para volver a acceder, inicie sesión nuevamente.")
 
 st.markdown("Puede cerrar esta pestaña o regresar al login.")
