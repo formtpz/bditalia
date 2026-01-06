@@ -37,6 +37,7 @@ if modo == "Personal Existente":
             id,
             cedula,
             nombre_completo,
+            contraseña,
             puesto,
             perfil,
             horario,
