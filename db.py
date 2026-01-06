@@ -4,4 +4,4 @@ import os
 
 @st.cache_resource
 def get_connection():
-    return psycopg2.connect(os.environ["URI"])
+    return psycopg2.connect(st.secrets["db_credentials"]["URI"])
