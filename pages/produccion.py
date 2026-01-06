@@ -128,8 +128,8 @@ if submit:
                 %s
             )
         """, (
-            st.session_state.cedula,
-            st.session_state.cedula,
+            cedula,
+            cedula,
             fecha_reporte,
             semana,
             anio,
