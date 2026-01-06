@@ -53,34 +53,29 @@ with st.form("form_reporte_produccion"):
     )
 
     zona = st.text_input("Zona")
-    area = st.text_input("Área")
 
     horas = st.number_input(
         "Horas laboradas",
         min_value=0.0,
-        max_value=24.0,
-        step=0.25
+        max_value=24.0
     )
 
     produccion = st.number_input(
         "Producción",
-        min_value=0,
-        step=1
+        min_value=0
     )
 
     aprobados = st.number_input(
         "Aprobados",
-        min_value=0,
-        step=1
+        min_value=0
     )
 
     rechazados = st.number_input(
         "Rechazados",
-        min_value=0,
-        step=1
+        min_value=0
     )
 
-    observaciones = st.text_area("Observaciones")
+    observaciones = st.text_area("Observaciones", value="")
 
     submit = st.form_submit_button("Guardar reporte")
 
