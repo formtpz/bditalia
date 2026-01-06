@@ -21,8 +21,8 @@ def login_usuario(cedula, password):
             "nombre": user[1],
             "perfil": user[2],
             "puesto": user[3]
-    }
-    st.rerun()
+        }
+        st.rerun()
     
     else:
         st.error("Credenciales incorrectas")
