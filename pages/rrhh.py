@@ -13,6 +13,7 @@ if not st.session_state.get("authenticated"):
 usuario = st.session_state.get("usuario")
 cedula = st.session_state.get("cedula")
 puesto = st.session_state.get("puesto")
+perfil = st.session_state.get("perfil")
 
 if perfil != 1 or puesto.lower() != "coordinador":
     st.error("Acceso restringido a RRHH")
