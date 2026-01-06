@@ -90,7 +90,7 @@ with st.form("form_reporte_produccion"):
 # =========================
 if submit:
     semana = fecha_reporte.isocalendar()[1]
-    anio = fecha_reporte.year
+    año = fecha_reporte.year
 
     proceso_id = procesos_dict[proceso_nombre]
 
@@ -102,7 +102,7 @@ if submit:
                 cedula_quien_reporta,
                 fecha_reporte,
                 semana,
-                anio,
+                año,
                 horas,
                 proceso_id,
                 zona,
@@ -137,7 +137,7 @@ if submit:
             cedula,
             fecha_reporte,
             semana,
-            anio,
+            año,
             horas,
             proceso_id,
             zona,
