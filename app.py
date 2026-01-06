@@ -23,5 +23,5 @@ if not usuario:
 else:
     st.success(f"Bienvenido {usuario['nombre']}")
     st.info("Use el menú lateral para navegar")
-    title("Menú")
+    st.itle("Menú")
 
