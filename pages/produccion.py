@@ -5,9 +5,14 @@ from datetime import date
 # =========================
 # Control de acceso
 # =========================
-if not st.session_state.get("authenticated"):
+usuario = st.session_state.get("usuario")
+
+if not usuario:
     st.warning("Debe iniciar sesión")
     st.stop()
+
+perfil = usuario["perfil"]
+puesto = usuario["puesto"]
 
 # Operadores y admin pueden reportar producción
 # perfil: 1=admin, 2=operador, 3=supervisor
