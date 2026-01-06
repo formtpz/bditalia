@@ -1,5 +1,5 @@
 import streamlit as st
-
+st.image("logo.png", use_container_width=True)
 st.set_page_config(
     page_title="Sesión Cerrada Satisfactoriamente",
     page_icon="🚪",
@@ -26,4 +26,4 @@ st.session_state.clear()
 st.info("Para volver a acceder, inicie sesión nuevamente.")
 
 st.markdown("Puede cerrar esta pestaña o regresar al login.")
-st.image("logo.png", use_container_width=True)
+
