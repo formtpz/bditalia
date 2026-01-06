@@ -81,7 +81,7 @@ if modo == "Personal Existente":
             ))
         conn.commit()
         st.success("Cambios guardados correctamente")
-        st.experimental_rerun()  # rerun para actualizar la tabla
+        st.rerun()  # rerun para actualizar la tabla
 
 # =========================
 # Modo: Crear Nuevo Personal
