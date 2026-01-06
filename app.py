@@ -7,7 +7,7 @@ st.markdown("""
 <style>
 /* Texto de los items del menú */
 section[data-testid="stSidebar"] nav a {
-    font-size: 16px !important;
+    font-size: 20px !important;
     font-weight: 600;
 }
 
