@@ -6,11 +6,11 @@ from db import get_connection
 # =========================
 # GUARDIA DE ACCESO
 # =========================
-usuario = st.session_state.get("usuario")
-
-if not usuario:
+if not st.session_state.get("authenticated"):
     st.warning("Debe iniciar sesión")
     st.stop()
+    
+usuario = st.session_state.get("usuario")
 
 if usuario["perfil"] != 1 or usuario["puesto"].lower() != "coordinador":
     st.error("Acceso restringido a RRHH")
