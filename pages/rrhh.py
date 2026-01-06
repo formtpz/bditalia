@@ -70,6 +70,7 @@ if cedula_sel:
             [1, 2, 3],
             index=[1, 2, 3].index(persona["perfil"])
         )
+        horario = st.text_input("Horario")
         estado = st.selectbox(
             "Estado",
             ["activo", "inactivo"],
