@@ -6,7 +6,7 @@ st.title("📈 Historial de Reportes")
 
 usuario = st.session_state.get("usuario")
 
-if not usuario:
+if not st.session_state.get("authenticated"):
     st.warning("Debe iniciar sesión")
     st.stop()
 
