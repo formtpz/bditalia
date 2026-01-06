@@ -110,7 +110,9 @@ if submit:
                 aprobados,
                 rechazados,
                 tipo_evento_id,
-                observaciones
+                observaciones,
+                perfil,
+                puesto                
             )
             VALUES (
                 'produccion',
@@ -126,6 +128,8 @@ if submit:
                 %s,
                 %s,
                 NULL,
+                %s,
+                %s,
                 %s
             )
         """, (
@@ -140,7 +144,9 @@ if submit:
             produccion,
             aprobados,
             rechazados,
-            observaciones
+            observaciones,
+            perfil,
+            puesto
         ))
 
         conn.commit()
