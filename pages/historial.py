@@ -62,7 +62,7 @@ query_eventos = """
 SELECT 
     fecha_reporte,
     horas,
-    tipo_evento,
+    tipo_evento_id,
     observaciones
 FROM reportes
 WHERE tipo_reporte = 'evento'
