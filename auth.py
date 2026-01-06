@@ -16,11 +16,11 @@ def login_usuario(cedula, password):
     user = cur.fetchone()
 
     if user:
-    st.session_state["usuario"] = {
-        "cedula": user[0],
-        "nombre": user[1],
-        "perfil": user[2],
-        "puesto": user[3]
+        st.session_state["usuario"] = {
+            "cedula": user[0],
+            "nombre": user[1],
+            "perfil": user[2],
+            "puesto": user[3]
     }
     st.rerun()
     
