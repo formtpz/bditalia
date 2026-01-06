@@ -6,7 +6,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("🚪 Cerrar sesión")
+st.title("Sesión Cerrada Satisfactoriamente")
 
 # =========================
 # Cerrar conexión a BD si existe
