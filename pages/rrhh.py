@@ -34,6 +34,7 @@ df_personal = pd.read_sql("""
         nombre_completo,
         puesto,
         perfil,
+        horario,
         estado,
         fecha_vinculacion,
         fecha_desvinculacion
@@ -90,12 +91,13 @@ if cedula_sel:
                 nombre_completo = %s,
                 puesto = %s,
                 perfil = %s,
+                horario = %s,
                 estado = %s,
                 fecha_vinculacion = %s,
                 fecha_desvinculacion = %s
             WHERE cedula = %s
         """, (
-            nombre, puesto, perfil, estado,
+            nombre, puesto, perfil, horario, estado,
             fecha_vinc, fecha_desv, cedula_sel
         ))
         conn.commit()
@@ -112,6 +114,7 @@ with st.form("form_nuevo"):
     nombre_n = st.text_input("Nombre completo")
     password_n = st.text_input("Contraseña", type="password")
     puesto_n = st.selectbox("Puesto", ["Operador", "Supervisor", "Coordinador"])
+    horario_n = st.number_input("Horario", min_key=0.0)
     perfil_n = st.selectbox("Perfil", [1, 2, 3])
     estado_n = st.selectbox("Estado", ["activo", "inactivo"])
     fecha_vinc_n = st.date_input("Fecha vinculación")
