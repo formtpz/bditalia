@@ -126,7 +126,7 @@ if crear:
         cur.execute("""
             INSERT INTO personal (
                 cedula, nombre_completo, contraseña, puesto,
-                perfil, estado, fecha_vinculacion
+                perfil, horario, estado, fecha_vinculacion
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             cedula_n, nombre_n, password_n,
