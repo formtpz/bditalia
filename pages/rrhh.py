@@ -63,6 +63,7 @@ if modo == "Personal Existente":
     with st.form("editar_personal"):
         cedula = st.text_input("Cédula", value=df_empleado["cedula"])
         nombre = st.text_input("Nombre completo", value=df_empleado["nombre_completo"])
+        password = st.text_input("Contraseña", value=df_empleado["contraseña"])  # <- mostrar contraseña
         puesto = st.text_input("Puesto", value=df_empleado["puesto"])
         perfil = st.number_input(
             "Perfil (1=Admin, 2=Operador, 3=Supervisor)",
@@ -84,6 +85,7 @@ if modo == "Personal Existente":
                 UPDATE personal SET
                     cedula = %s,
                     nombre_completo = %s,
+                    contraseña = %s,
                     puesto = %s,
                     perfil = %s,
                     horario = %s,
@@ -93,6 +95,7 @@ if modo == "Personal Existente":
             """, (
                 cedula,
                 nombre,
+                contraseña,
                 puesto,
                 int(perfil),
                 horario,
