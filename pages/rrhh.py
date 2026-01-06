@@ -114,7 +114,7 @@ with st.form("form_nuevo"):
     nombre_n = st.text_input("Nombre completo")
     password_n = st.text_input("Contraseña", type="password")
     puesto_n = st.selectbox("Puesto", ["Operador", "Supervisor", "Coordinador"])
-    horario_n = st.number_input("Horario", min_key=0.0)
+    horario_n = st.number_input("Horario", min_value=0.0)
     perfil_n = st.selectbox("Perfil", [1, 2, 3])
     estado_n = st.selectbox("Estado", ["activo", "inactivo"])
     fecha_vinc_n = st.date_input("Fecha vinculación")
