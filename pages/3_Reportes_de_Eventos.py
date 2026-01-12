@@ -98,8 +98,8 @@ with st.form("form_reporte_evento"):
     if puesto == "operario catastral":
         # Solo autoreporte
         personal_seleccionado = [
-            key for key, val in personal_dict.items()
-            if val == cedula_reporta
+           key for key, val in personal_dict.items()
+            if val["cedula"] == cedula_reporta
         ]
         st.info("Como Operario Catastral, solo puede reportarse a sí mismo.")
     else:
@@ -109,13 +109,10 @@ with st.form("form_reporte_evento"):
             options=list(personal_dict.keys()),
             default=[
                 key for key, val in personal_dict.items()
-                if val == cedula_reporta
+                if val["cedula"] == cedula_reporta
             ]
         )
 
-    observaciones = st.text_area("Observaciones (opcional)", value="")
-
-    submit = st.form_submit_button("Guardar evento")
 
 # =========================
 # Guardar eventos
@@ -144,7 +141,7 @@ if submit:
                     cedula_quien_reporta,
                     fecha_reporte,
                     semana,
-                   año,
+                    año,
                     horas,
                     proceso_id,
                     zona,
