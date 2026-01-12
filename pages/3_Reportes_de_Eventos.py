@@ -112,7 +112,8 @@ with st.form("form_reporte_evento"):
                 if val["cedula"] == cedula_reporta
             ]
         )
-
+    observaciones = st.text_area("Observaciones (opcional)", value="") 
+    submit = st.form_submit_button("Guardar evento")
 
 # =========================
 # Guardar eventos
