@@ -64,8 +64,12 @@ cur.execute("""
 personal = cur.fetchall()
 
 personal_dict = {
-    f"{nombre} ({ced})": ced
-    for ced, nombre in personal
+    f"{nombre} ({ced})": {
+        "cedula": ced,
+        "perfil": perfil_p,
+        "puesto": puesto_p
+    }
+    for ced, nombre, perfil_p, puesto_p in personal
 }
 
 # =========================
@@ -127,7 +131,11 @@ if submit:
 
     try:
         for persona in personal_seleccionado:
-            cedula_personal = personal_dict[persona]
+            datos = personal_dict[persona]
+
+            cedula_personal = datos["cedula"]
+            perfil_personal = datos["perfil"]
+            puesto_personal = datos["puesto"]
 
             cur.execute("""
                 INSERT INTO reportes (
@@ -136,7 +144,7 @@ if submit:
                     cedula_quien_reporta,
                     fecha_reporte,
                     semana,
-                    año,
+                   año,
                     horas,
                     proceso_id,
                     zona,
@@ -176,9 +184,10 @@ if submit:
                 horas,
                 tipo_evento_id,
                 observaciones,
-                perfil,
-                puesto
+                perfil_personal,
+                puesto_personal
             ))
+        
 
         conn.commit()
         st.success("✅ Evento(s) registrado(s) correctamente")
