@@ -170,8 +170,8 @@ if submit:
                 0,
                 %s,
                 %s,
-                %s,
                 %s
+                
             )
         """, (
             cedula_personal,
