@@ -9,7 +9,7 @@ def login_usuario(cedula, password):
         SELECT cedula, nombre_completo, perfil, puesto
         FROM personal
         WHERE cedula = %s
-          AND "contraseña" = %s
+          AND contraseña = %s
           AND estado = 'activo'
     """, (cedula.strip(), password.strip()))
 
