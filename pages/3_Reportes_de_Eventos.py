@@ -136,55 +136,55 @@ if submit:
             puesto_personal = datos["puesto"]
 
             cur.execute("""
-                INSERT INTO reportes (
-                    tipo_reporte,
-                    cedula_personal,
-                    cedula_quien_reporta,
-                    fecha_reporte,
-                    semana,
-                    año,
-                    horas,
-                    proceso_id,
-                    zona,
-                    produccion,
-                    aprobados,
-                    rechazados,
-                    tipo_evento_id,
-                    observaciones,
-                    perfil,
-                    puesto
-                )
-                VALUES (
-                    'evento',
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    NULL,
-                    NULL,
-                    0,
-                    0,
-                    0,
-                    %s,
-                    %s,
-                    %s,
-                    %s
-                )
-            """, (
+            INSERT INTO reportes (
+                tipo_reporte,
                 cedula_personal,
-                cedula_reporta,
+                cedula_quien_reporta,
                 fecha_reporte,
                 semana,
                 año,
                 horas,
+                proceso_id,
+                zona,
+                produccion,
+                aprobados,
+                rechazados,
                 tipo_evento_id,
                 observaciones,
-                perfil_personal,
-                puesto_personal
-            ))
+                perfil,
+                puesto
+            )
+            VALUES (
+                'evento',
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                NULL,
+                NULL,
+                0,
+                0,
+                0,
+                %s,
+                %s,
+                %s,
+                %s
+            )
+        """, (
+            cedula_personal,
+            cedula_reporta,
+            fecha_reporte,
+            semana,
+            año,
+            horas,
+            tipo_evento_id,
+            observaciones,
+            perfil_personal,
+            puesto_personal
+        ))
         
 
         conn.commit()
