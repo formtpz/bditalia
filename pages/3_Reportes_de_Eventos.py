@@ -55,7 +55,7 @@ tipos_evento_dict = {nombre: id_ for id_, nombre in tipos_evento}
 # Cargar personal activo
 # =========================
 cur.execute("""
-    SELECT cedula, nombre_completo
+    SELECT cedula, nombre_completo, perfil, puesto
     FROM personal
     WHERE estado = 'activo'
     ORDER BY nombre_completo
