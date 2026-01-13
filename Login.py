@@ -1,21 +1,32 @@
-# --- Streamlit Page ---
-# title: Recurso Humano
-# icon: 👥
-
 import streamlit as st
 from auth import login_usuario
-
-st.set_page_config(page_title="Sistema de Reportes", layout="centered")
-
-
+from permisos import validar_acceso
 
 # =========================
-# LOGIN
+# Configuración de página
+# =========================
+st.set_page_config(
+    page_title="Sistema de Reportes - Login",
+    page_icon="🔐",
+    layout="centered"
+)
+
+# =========================
+# Control de acceso
+# =========================
+# Login siempre está permitido,
+# pero validamos sesión mínima
+validar_acceso("Login")
+
+# =========================
+# Vista
 # =========================
 usuario = st.session_state.get("usuario")
 
+st.image("logo.png", use_container_width=True)
+
+# -------- NO LOGUEADO --------
 if not usuario:
-    st.image("logo.png", use_container_width=True)
     st.title("Ingreso al sistema")
 
     cedula = st.text_input("Cédula")
@@ -24,11 +35,8 @@ if not usuario:
     if st.button("Ingresar"):
         login_usuario(cedula, password)
 
+# -------- YA LOGUEADO --------
 else:
-    st.image("logo.png", use_container_width=True)
-    st.title("Acceso Correcto")
+    st.title("Acceso correcto")
     st.success(f"Bienvenido {usuario['nombre']}")
-    st.info("Use el menú lateral para navegar")
-   
-
-
+    st.info("Use el menú lateral para navegar por el sistema")
