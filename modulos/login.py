@@ -3,7 +3,7 @@ from auth import login_usuario
 
 def render():
     st.image("logo.png", use_container_width=True)
-
+    st.image(logo, width=120) 
     st.title("Ingreso al sistema")
 
     cedula = st.text_input("Cédula")
