@@ -12,7 +12,7 @@ validar_acceso("RRHH")
 usuario = st.session_state.get("usuario")
 
 # Seguridad extra (opcional pero recomendable)
-if usuario["perfil"] != 1:
+if usuario["perfil"] != 2:
     st.error("Acceso restringido a RRHH")
     st.stop()
 
