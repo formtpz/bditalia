@@ -14,7 +14,12 @@ if not usuario:
 perfil = usuario["perfil"]
 puesto = usuario["puesto"].lower()
 cedula_reporta = usuario["cedula"]
+nombre_usuario = usuario["nombre"]
 
+# Perfiles permitidos
+# 1 = Admin / Coordinador
+# 2 = Operador
+# 3 = Supervisor
 if perfil not in (1, 2, 3):
     st.error("No tiene permiso para acceder a esta sección")
     st.stop()
@@ -35,9 +40,11 @@ cur.execute("""
 
 tipos_evento = cur.fetchall()
 
-# =========================
-# Restricción de eventos para Operario Catastral
-# =========================
+if not tipos_evento:
+    st.error("No existen tipos de evento registrados")
+    st.stop()
+
+# Restricción para Operario Catastral
 if puesto == "operario catastral":
     tipos_evento = [
         (id_, nombre)
@@ -52,24 +59,38 @@ if not tipos_evento:
 tipos_evento_dict = {nombre: id_ for id_, nombre in tipos_evento}
 
 # =========================
-# Cargar personal activo
+# Cargar personal según jerarquía
 # =========================
-cur.execute("""
-    SELECT cedula, nombre_completo, perfil, puesto
-    FROM personal
-    WHERE estado = 'activo'
-    ORDER BY nombre_completo
-""")
+if puesto == "coordinador":
+    cur.execute("""
+        SELECT cedula, nombre_completo, perfil, puesto, supervisor
+        FROM personal
+        WHERE estado = 'activo'
+        ORDER BY nombre_completo
+    """)
+else:
+    cur.execute("""
+        SELECT cedula, nombre_completo, perfil, puesto, supervisor
+        FROM personal
+        WHERE estado = 'activo'
+        AND supervisor = %s
+        ORDER BY nombre_completo
+    """, (nombre_usuario,))
 
 personal = cur.fetchall()
+
+if not personal:
+    st.error("No existe personal disponible para reportar")
+    st.stop()
 
 personal_dict = {
     f"{nombre} ({ced})": {
         "cedula": ced,
         "perfil": perfil_p,
-        "puesto": puesto_p
+        "puesto": puesto_p,
+        "supervisor": supervisor_p
     }
-    for ced, nombre, perfil_p, puesto_p in personal
+    for ced, nombre, perfil_p, puesto_p, supervisor_p in personal
 }
 
 # =========================
@@ -78,7 +99,10 @@ personal_dict = {
 with st.form("form_reporte_evento"):
     st.subheader("Datos del evento")
 
-    fecha_reporte = st.date_input("Fecha del evento", value=date.today())
+    fecha_reporte = st.date_input(
+        "Fecha del evento",
+        value=date.today()
+    )
 
     tipo_evento_nombre = st.selectbox(
         "Tipo de evento",
@@ -96,23 +120,22 @@ with st.form("form_reporte_evento"):
     # Selección de personal
     # =========================
     if puesto == "operario catastral":
-        # Solo autoreporte
         personal_seleccionado = [
-           key for key, val in personal_dict.items()
+            key for key, val in personal_dict.items()
             if val["cedula"] == cedula_reporta
         ]
         st.info("Como Operario Catastral, solo puede reportarse a sí mismo.")
     else:
-        # Admin y Supervisor
         personal_seleccionado = st.multiselect(
             "Personal al que aplica el evento",
-            options=list(personal_dict.keys()),
-            default=[
-                key for key, val in personal_dict.items()
-                if val["cedula"] == cedula_reporta
-            ]
+            options=list(personal_dict.keys())
         )
-    observaciones = st.text_area("Observaciones (opcional)", value="") 
+
+    observaciones = st.text_area(
+        "Observaciones (opcional)",
+        value=""
+    )
+
     submit = st.form_submit_button("Guardar evento")
 
 # =========================
@@ -135,57 +158,70 @@ if submit:
             perfil_personal = datos["perfil"]
             puesto_personal = datos["puesto"]
 
+            # =========================
+            # Obtener supervisor REAL del reportado
+            # =========================
             cur.execute("""
-            INSERT INTO reportes (
-                tipo_reporte,
+                SELECT supervisor
+                FROM personal
+                WHERE cedula = %s
+            """, (cedula_personal,))
+
+            row_sup = cur.fetchone()
+            supervisor_nombre = row_sup[0] if row_sup else None
+
+            cur.execute("""
+                INSERT INTO reportes (
+                    tipo_reporte,
+                    cedula_personal,
+                    cedula_quien_reporta,
+                    supervisor_nombre,
+                    fecha_reporte,
+                    semana,
+                    año,
+                    horas,
+                    proceso_id,
+                    zona,
+                    produccion,
+                    aprobados,
+                    rechazados,
+                    tipo_evento_id,
+                    observaciones,
+                    perfil,
+                    puesto
+                )
+                VALUES (
+                    'evento',
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    %s,
+                    %s,
+                    %s,
+                    %s
+                )
+            """, (
                 cedula_personal,
-                cedula_quien_reporta,
+                cedula_reporta,
+                supervisor_nombre,
                 fecha_reporte,
                 semana,
                 año,
                 horas,
-                proceso_id,
-                zona,
-                produccion,
-                aprobados,
-                rechazados,
                 tipo_evento_id,
                 observaciones,
-                perfil,
-                puesto
-            )
-            VALUES (
-                'evento',
-                %s,
-                %s,
-                %s,
-                %s,
-                %s,
-                %s,
-                0,
-                0,
-                0,
-                0,
-                0,
-                %s,
-                %s,
-                %s,
-                %s
-                
-            )
-        """, (
-            cedula_personal,
-            cedula_reporta,
-            fecha_reporte,
-            semana,
-            año,
-            horas,
-            tipo_evento_id,
-            observaciones,
-            perfil_personal,
-            puesto_personal
-        ))
-        
+                perfil_personal,
+                puesto_personal
+            ))
 
         conn.commit()
         st.success("✅ Evento(s) registrado(s) correctamente")
