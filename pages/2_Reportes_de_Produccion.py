@@ -12,7 +12,7 @@ if not usuario:
     st.stop()
 
 perfil = usuario["perfil"]
-puesto = usuario["puesto"].lower()
+puesto = usuario["puesto"]
 cedula_usuario = usuario["cedula"]
 nombre_usuario = usuario["nombre"]
 
