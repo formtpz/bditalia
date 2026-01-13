@@ -37,7 +37,6 @@ params_base = [fecha_inicio, fecha_fin]
 
 # -------- OPERADOR --------
 if perfil == 2:
-    # Solo sus propios reportes
     where_extra = " AND r.cedula_personal = %s"
     params_base.append(cedula_usuario)
 
@@ -78,18 +77,20 @@ st.subheader("📊 Reportes de Producción")
 query_prod = f"""
 SELECT 
     r.fecha_reporte,
-    r.horas,
+    p.nombre_completo AS persona,
     r.supervisor_nombre AS supervisor,
     r.zona,
+    r.horas,
     r.produccion,
     r.aprobados,
     r.rechazados,
     r.observaciones
 FROM reportes r
+JOIN personal p ON p.cedula = r.cedula_personal
 WHERE r.tipo_reporte = 'produccion'
 AND r.fecha_reporte BETWEEN %s AND %s
 {where_extra}
-ORDER BY r.fecha_reporte
+ORDER BY r.fecha_reporte, persona
 """
 
 df_prod = pd.read_sql(query_prod, conn, params=params_base)
@@ -103,43 +104,46 @@ st.subheader("🗂️ Reportes de Eventos")
 query_eventos = f"""
 SELECT 
     r.fecha_reporte,
-    r.horas,
+    p.nombre_completo AS persona,
     r.supervisor_nombre AS supervisor,
+    r.horas,
     te.nombre AS tipo_evento,
     r.observaciones
 FROM reportes r
+JOIN personal p ON p.cedula = r.cedula_personal
 LEFT JOIN tipos_evento te ON te.id = r.tipo_evento_id
 WHERE r.tipo_reporte = 'evento'
 AND r.fecha_reporte BETWEEN %s AND %s
 {where_extra}
-ORDER BY r.fecha_reporte
+ORDER BY r.fecha_reporte, persona
 """
 
 df_eventos = pd.read_sql(query_eventos, conn, params=params_base)
 st.dataframe(df_eventos, use_container_width=True)
 
 # =========================
-# RESUMEN DIARIO DE HORAS
+# RESUMEN DIARIO DE HORAS (POR PERSONA)
 # =========================
-st.subheader("⏱️ Resumen Diario de Horas")
+st.subheader("⏱️ Resumen Diario de Horas por Persona")
 
 query_horas = f"""
 SELECT 
     r.fecha_reporte,
+    p.nombre_completo AS persona,
     SUM(r.horas) AS total_horas
 FROM reportes r
+JOIN personal p ON p.cedula = r.cedula_personal
 WHERE r.fecha_reporte BETWEEN %s AND %s
 {where_extra}
-GROUP BY r.fecha_reporte
-ORDER BY r.fecha_reporte
+GROUP BY r.fecha_reporte, p.nombre_completo
+ORDER BY r.fecha_reporte, persona
 """
 
 df_horas = pd.read_sql(query_horas, conn, params=params_base)
 
-# Validación flexible de 8.5 horas
+# Validación flexible de 8.5 horas (por persona)
 df_horas["estado"] = df_horas["total_horas"].apply(
     lambda x: "✅ OK" if 8.4 <= float(x) <= 8.6 else "⚠️ Revisar"
 )
 
 st.dataframe(df_horas, use_container_width=True)
-
