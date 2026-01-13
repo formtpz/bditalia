@@ -166,7 +166,7 @@ if submit:
             rechazados,
             observaciones,
             perfil,
-            usuario["puesto"]
+            puesto
         ))
 
         conn.commit()
