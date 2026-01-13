@@ -1,12 +1,23 @@
 import streamlit as st
-st.image("logo.png", use_container_width=True)
+from permisos import validar_acceso
+
+# =========================
+# Control de acceso
+# =========================
+validar_acceso("Cerrar_Sesion")
+
+# =========================
+# Configuración de página
+# =========================
 st.set_page_config(
-    page_title="Sesión Cerrada Satisfactoriamente",
+    page_title="Cerrar Sesión",
     page_icon="🚪",
     layout="centered"
 )
 
-st.title("Sesión Cerrada Satisfactoriamente")
+st.image("logo.png", use_container_width=True)
+
+st.title("Sesión cerrada satisfactoriamente")
 
 # =========================
 # Cerrar conexión a BD si existe
@@ -23,7 +34,7 @@ if conn:
 # =========================
 st.session_state.clear()
 
-st.info("Para volver a acceder, inicie sesión nuevamente.")
+st.success("Su sesión ha sido cerrada correctamente")
+st.info("Para volver a acceder, inicie sesión nuevamente")
 
 st.markdown("Puede cerrar esta pestaña o regresar al login.")
-
