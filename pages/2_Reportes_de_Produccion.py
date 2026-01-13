@@ -1,15 +1,14 @@
 import streamlit as st
 from db import get_connection
 from datetime import date
+from permisos import validar_acceso
 
 # =========================
 # Control de acceso
 # =========================
-usuario = st.session_state.get("usuario")
+validar_acceso("Produccion")
 
-if not usuario:
-    st.warning("Debe iniciar sesión")
-    st.stop()
+usuario = st.session_state.get("usuario")
 
 perfil = usuario["perfil"]
 puesto = usuario["puesto"]
@@ -18,11 +17,20 @@ nombre_usuario = usuario["nombre"]
 
 # Perfiles permitidos
 # 1 = Admin / Coordinador
-# 2 = Operador
-# 3 = Supervisor
-if perfil not in (1, 2, 3):
-    st.error("No tiene permiso para acceder a esta sección")
+# 2 = RRHH (NO accede aquí)
+# 3 = Operativo / Supervisor
+if perfil not in (1, 3):
+    st.error("No tiene permiso para acceder a Reportes de Producción")
     st.stop()
+
+# =========================
+# Configuración de página
+# =========================
+st.set_page_config(
+    page_title="Reporte de Producción",
+    page_icon="📊",
+    layout="centered"
+)
 
 st.title("📊 Reporte de Producción")
 
@@ -47,8 +55,7 @@ if not procesos:
 procesos_dict = {nombre: pid for pid, nombre in procesos}
 
 # =========================
-# Obtener supervisor REAL desde personal
-# (snapshot histórico)
+# Obtener supervisor REAL (snapshot)
 # =========================
 cur.execute("""
     SELECT supervisor
@@ -80,7 +87,8 @@ with st.form("form_reporte_produccion"):
     horas = st.number_input(
         "Horas laboradas",
         min_value=0.0,
-        max_value=24.0
+        max_value=24.0,
+        step=0.5
     )
 
     produccion = st.number_input(
@@ -113,7 +121,7 @@ if submit:
     try:
         cur.execute("""
             INSERT INTO reportes (
-                tipo_reporte, 
+                tipo_reporte,
                 cedula_personal,
                 cedula_quien_reporta,
                 supervisor_nombre,
