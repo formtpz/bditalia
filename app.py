@@ -28,7 +28,7 @@ perfil = usuario["perfil"]
 opciones = PERMISOS_POR_PERFIL.get(perfil, [])
 
 with st.sidebar:
-    st.image("logo.png", use_container_width=True, width=12)
+    st.image("logo.png", width=12)
 
     st.markdown("### Menú")
     opcion = st.radio("Seleccione una opción", opciones)
