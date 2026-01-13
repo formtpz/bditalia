@@ -2,7 +2,7 @@ import streamlit as st
 from auth import login_usuario
 
 def render():
-    st.image("logo.png", use_container_width=True, width=12)
+    st.image("logo.png", width=12)
     st.title("Ingreso al sistema")
 
     cedula = st.text_input("Cédula")
