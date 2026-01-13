@@ -14,9 +14,7 @@ st.set_page_config(
 # =========================
 # Control de acceso
 # =========================
-# Login siempre está permitido,
-# pero validamos sesión mínima
-validar_acceso("Login")
+# Login siempre está permitido
 
 # =========================
 # Vista
