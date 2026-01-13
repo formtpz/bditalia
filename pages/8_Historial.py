@@ -1,22 +1,36 @@
 import streamlit as st
 import pandas as pd
 from db import get_connection
-
-st.title("📈 Historial de Reportes")
+from permisos import validar_acceso
 
 # =========================
 # Control de acceso
 # =========================
+validar_acceso("Historial")
+
 usuario = st.session_state.get("usuario")
 
-if not usuario:
-    st.warning("Debe iniciar sesión")
-    st.stop()
-
-perfil = usuario["perfil"]        # 1=Admin/Coordinador, 2=Operador, 3=Supervisor
+perfil = usuario["perfil"]        # 1 = Admin / Coordinador
+                                  # 3 = Operativo / Supervisor
 puesto = usuario["puesto"].lower()
 cedula_usuario = usuario["cedula"]
 nombre_usuario = usuario["nombre"]
+
+# Seguridad adicional
+if perfil not in (1, 3):
+    st.error("No tiene permiso para acceder al historial")
+    st.stop()
+
+# =========================
+# Configuración de página
+# =========================
+st.set_page_config(
+    page_title="Historial de Reportes",
+    page_icon="📈",
+    layout="wide"
+)
+
+st.title("📈 Historial de Reportes")
 
 conn = get_connection()
 
@@ -24,8 +38,10 @@ conn = get_connection()
 # Filtro de fechas
 # =========================
 col1, col2 = st.columns(2)
+
 with col1:
     fecha_inicio = st.date_input("Desde")
+
 with col2:
     fecha_fin = st.date_input("Hasta")
 
@@ -35,8 +51,8 @@ with col2:
 where_extra = ""
 params_base = [fecha_inicio, fecha_fin]
 
-# -------- OPERADOR --------
-if perfil == 2:
+# -------- OPERATIVO --------
+if perfil == 3 and puesto == "operario catastral":
     where_extra = " AND r.cedula_personal = %s"
     params_base.append(cedula_usuario)
 
@@ -88,8 +104,8 @@ SELECT
 FROM reportes r
 JOIN personal p ON p.cedula = r.cedula_personal
 WHERE r.tipo_reporte = 'produccion'
-AND r.fecha_reporte BETWEEN %s AND %s
-{where_extra}
+  AND r.fecha_reporte BETWEEN %s AND %s
+  {where_extra}
 ORDER BY r.fecha_reporte, persona
 """
 
@@ -113,8 +129,8 @@ FROM reportes r
 JOIN personal p ON p.cedula = r.cedula_personal
 LEFT JOIN tipos_evento te ON te.id = r.tipo_evento_id
 WHERE r.tipo_reporte = 'evento'
-AND r.fecha_reporte BETWEEN %s AND %s
-{where_extra}
+  AND r.fecha_reporte BETWEEN %s AND %s
+  {where_extra}
 ORDER BY r.fecha_reporte, persona
 """
 
@@ -134,14 +150,14 @@ SELECT
 FROM reportes r
 JOIN personal p ON p.cedula = r.cedula_personal
 WHERE r.fecha_reporte BETWEEN %s AND %s
-{where_extra}
+  {where_extra}
 GROUP BY r.fecha_reporte, p.nombre_completo
 ORDER BY r.fecha_reporte, persona
 """
 
 df_horas = pd.read_sql(query_horas, conn, params=params_base)
 
-# Validación flexible de 8.5 horas (por persona)
+# Validación flexible de jornada (≈ 8.5 horas)
 df_horas["estado"] = df_horas["total_horas"].apply(
     lambda x: "✅ OK" if 8.4 <= float(x) <= 8.6 else "⚠️ Revisar"
 )
