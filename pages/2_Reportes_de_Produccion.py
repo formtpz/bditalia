@@ -12,28 +12,32 @@ if not usuario:
     st.stop()
 
 perfil = usuario["perfil"]
-puesto = usuario["puesto"]
-cedula = usuario["cedula"]
+puesto = usuario["puesto"].lower()
+cedula_usuario = usuario["cedula"]
+nombre_usuario = usuario["nombre"]
 
-# Operadores y admin pueden reportar producción
-# perfil: 1=admin, 2=operador, 3=supervisor
+# Perfiles permitidos
+# 1 = Admin / Coordinador
+# 2 = Operador
+# 3 = Supervisor
 if perfil not in (1, 2, 3):
     st.error("No tiene permiso para acceder a esta sección")
     st.stop()
 
-st.title("Reporte de Producción")
+st.title("📊 Reporte de Producción")
 
-# =========================
-# Cargar procesos desde BD
-# =========================
 conn = get_connection()
 cur = conn.cursor()
 
+# =========================
+# Cargar procesos
+# =========================
 cur.execute("""
     SELECT id, nombre
     FROM procesos
     ORDER BY nombre
 """)
+
 procesos = cur.fetchall()
 
 if not procesos:
@@ -41,6 +45,19 @@ if not procesos:
     st.stop()
 
 procesos_dict = {nombre: pid for pid, nombre in procesos}
+
+# =========================
+# Obtener supervisor REAL desde personal
+# (snapshot histórico)
+# =========================
+cur.execute("""
+    SELECT supervisor
+    FROM personal
+    WHERE cedula = %s
+""", (cedula_usuario,))
+
+row_sup = cur.fetchone()
+supervisor_nombre = row_sup[0] if row_sup else None
 
 # =========================
 # Formulario
@@ -91,7 +108,6 @@ with st.form("form_reporte_produccion"):
 if submit:
     semana = fecha_reporte.isocalendar()[1]
     año = fecha_reporte.year
-
     proceso_id = procesos_dict[proceso_nombre]
 
     try:
@@ -100,6 +116,7 @@ if submit:
                 tipo_reporte,
                 cedula_personal,
                 cedula_quien_reporta,
+                supervisor_nombre,
                 fecha_reporte,
                 semana,
                 año,
@@ -112,10 +129,12 @@ if submit:
                 tipo_evento_id,
                 observaciones,
                 perfil,
-                puesto                
+                puesto
             )
             VALUES (
                 'produccion',
+                %s,
+                %s,
                 %s,
                 %s,
                 %s,
@@ -133,8 +152,9 @@ if submit:
                 %s
             )
         """, (
-            cedula,
-            cedula,
+            cedula_usuario,
+            cedula_usuario,
+            supervisor_nombre,
             fecha_reporte,
             semana,
             año,
@@ -146,7 +166,7 @@ if submit:
             rechazados,
             observaciones,
             perfil,
-            puesto
+            usuario["puesto"]
         ))
 
         conn.commit()
