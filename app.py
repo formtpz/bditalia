@@ -55,3 +55,18 @@ elif opcion == "Historial":
 elif opcion == "Cerrar_Sesion":
     from modulos.cerrar_sesion import render
     render()
+st.markdown(
+    """
+    <style>
+    /* Oculta el menú de Streamlit (⋮) */
+    #MainMenu {visibility: hidden;}
+
+    /* Oculta el footer (GitHub, Share, etc.) */
+    footer {visibility: hidden;}
+
+    /* Oculta el header superior */
+    header {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
