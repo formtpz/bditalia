@@ -1,6 +1,39 @@
 import streamlit as st
 from permisos import PERMISOS_POR_PERFIL
 
+hide_streamlit_style = """
+                <style>
+                div[data-testid="stToolbar"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                div[data-testid="stDecoration"] {
+                visibility: hidden;
+                height: 0%;
+                position: fixed;
+                }
+                div[data-testid="stStatusWidget"] {
+                visibility: Visible;
+                height: 0%;
+                position: fixed;
+                }
+                #MainMenu {
+                visibility: hidden;
+                height: 0%;
+                }
+                header {
+                visibility: hidden;
+                height: 0%;
+                }
+                footer {
+                visibility: hidden;
+                height: 0%;
+                }
+                </style>
+                """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # =========================
 # Configuración general
 # =========================
@@ -55,18 +88,5 @@ elif opcion == "Historial":
 elif opcion == "Cerrar_Sesion":
     from modulos.cerrar_sesion import render
     render()
-st.markdown(
-    """
-    <style>
-    /* Oculta el menú de Streamlit (⋮) */
-    #MainMenu {visibility: hidden;}
 
-    /* Oculta el footer (GitHub, Share, etc.) */
-    footer {visibility: hidden;}
 
-    /* Oculta el header superior */
-    header {visibility: hidden;}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
