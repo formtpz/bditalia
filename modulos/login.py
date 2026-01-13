@@ -10,3 +10,20 @@ def render():
 
     if st.button("Ingresar"):
         login_usuario(cedula, password)
+
+
+st.markdown(
+    """
+    <style>
+    /* Oculta el menú de Streamlit (⋮) */
+    #MainMenu {visibility: hidden;}
+
+    /* Oculta el footer (GitHub, Share, etc.) */
+    footer {visibility: hidden;}
+
+    /* Oculta el header superior */
+    header {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
