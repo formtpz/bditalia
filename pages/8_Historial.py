@@ -13,7 +13,7 @@ if not usuario:
     st.warning("Debe iniciar sesión")
     st.stop()
 
-perfil = usuario["perfil"]
+perfil = usuario["perfil"]        # 1=Admin/Coordinador, 2=Operador, 3=Supervisor
 puesto = usuario["puesto"].lower()
 cedula_usuario = usuario["cedula"]
 nombre_usuario = usuario["nombre"]
@@ -30,24 +30,45 @@ with col2:
     fecha_fin = st.date_input("Hasta")
 
 # =========================
-# Filtro base por jerarquía
+# Selector de alcance según perfil
 # =========================
 where_extra = ""
 params_base = [fecha_inicio, fecha_fin]
 
-# Coordinador: ve todo
-if puesto == "coordinador":
-    where_extra = ""
-
-# Supervisor: solo reportes donde él es el supervisor histórico
-elif perfil == 3:
-    where_extra = " AND r.supervisor_nombre = %s"
-    params_base.append(nombre_usuario)
-
-# Operador: solo sus propios reportes
-else:
+# -------- OPERADOR --------
+if perfil == 2:
+    # Solo sus propios reportes
     where_extra = " AND r.cedula_personal = %s"
     params_base.append(cedula_usuario)
+
+# -------- SUPERVISOR --------
+elif perfil == 3:
+    opcion = st.radio(
+        "Ver reportes de:",
+        ["Propios", "Operadores a cargo"],
+        horizontal=True
+    )
+
+    if opcion == "Propios":
+        where_extra = " AND r.cedula_personal = %s"
+        params_base.append(cedula_usuario)
+    else:
+        where_extra = " AND r.supervisor_nombre = %s"
+        params_base.append(nombre_usuario)
+
+# -------- COORDINADOR / ADMIN --------
+elif perfil == 1:
+    opcion = st.radio(
+        "Ver reportes:",
+        ["Totales", "Propios"],
+        horizontal=True
+    )
+
+    if opcion == "Propios":
+        where_extra = " AND r.cedula_personal = %s"
+        params_base.append(cedula_usuario)
+    else:
+        where_extra = ""
 
 # =========================
 # REPORTES DE PRODUCCIÓN
@@ -121,3 +142,4 @@ df_horas["estado"] = df_horas["total_horas"].apply(
 )
 
 st.dataframe(df_horas, use_container_width=True)
+
