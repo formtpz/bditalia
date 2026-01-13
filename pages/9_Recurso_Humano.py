@@ -20,6 +20,19 @@ st.title("👥 RRHH – Gestión de Personal")
 conn = get_connection()
 
 # =========================
+# Cargar posibles supervisores
+# =========================
+df_supervisores = pd.read_sql("""
+    SELECT nombre_completo
+    FROM personal
+    WHERE estado = 'activo'
+      AND puesto <> 'Operario Catastral'
+    ORDER BY nombre_completo
+""", conn)
+
+lista_supervisores = [""] + df_supervisores["nombre_completo"].tolist()
+
+# =========================
 # Selección de modo
 # =========================
 modo = st.radio(
@@ -27,11 +40,11 @@ modo = st.radio(
     ["Personal Existente", "Crear Nuevo Personal"]
 )
 
-# =========================
-# Modo: Personal Existente
-# =========================
+# =====================================================
+# MODO: PERSONAL EXISTENTE
+# =====================================================
 if modo == "Personal Existente":
-    # Cargar personal
+
     df_personal = pd.read_sql("""
         SELECT
             id,
@@ -42,6 +55,7 @@ if modo == "Personal Existente":
             perfil,
             horario,
             estado,
+            supervisor,
             fecha_vinculacion,
             fecha_desvinculacion
         FROM personal
@@ -51,20 +65,23 @@ if modo == "Personal Existente":
     st.subheader("📋 Personal existente")
     st.info("Seleccione un empleado para editar sus datos")
 
-    # Selectbox para elegir persona
     empleado_seleccionado = st.selectbox(
-        "Elija el empleado",
+        "Empleado",
         df_personal["nombre_completo"]
     )
 
-    # Filtrar los datos del empleado seleccionado
-    df_empleado = df_personal[df_personal["nombre_completo"] == empleado_seleccionado].iloc[0]
+    df_empleado = df_personal[
+        df_personal["nombre_completo"] == empleado_seleccionado
+    ].iloc[0]
 
-    # Formulario para editar solo ese empleado
+    # Índice del supervisor actual
+    sup_actual = df_empleado["supervisor"] if pd.notnull(df_empleado["supervisor"]) else ""
+    idx_sup = lista_supervisores.index(sup_actual) if sup_actual in lista_supervisores else 0
+
     with st.form("editar_personal"):
         cedula = st.text_input("Cédula", value=df_empleado["cedula"])
         nombre = st.text_input("Nombre completo", value=df_empleado["nombre_completo"])
-        contraseña = st.text_input("Contraseña", value=df_empleado["contraseña"])  # <- mostrar contraseña
+        contraseña = st.text_input("Contraseña", value=df_empleado["contraseña"])
         puesto = st.text_input("Puesto", value=df_empleado["puesto"])
         perfil = st.number_input(
             "Perfil (1=Admin, 2=Operador, 3=Supervisor)",
@@ -74,8 +91,23 @@ if modo == "Personal Existente":
             step=1
         )
         horario = st.text_input("Horario", value=df_empleado["horario"])
-        estado = st.selectbox("Estado", ["activo", "inactivo"], index=0 if df_empleado["estado"]=="activo" else 1)
-        fecha_desvinc = st.date_input("Fecha de desvinculación", value=df_empleado["fecha_desvinculacion"] if pd.notnull(df_empleado["fecha_desvinculacion"]) else None)
+        estado = st.selectbox(
+            "Estado",
+            ["activo", "inactivo"],
+            index=0 if df_empleado["estado"] == "activo" else 1
+        )
+
+        supervisor = st.selectbox(
+            "Supervisor",
+            lista_supervisores,
+            index=idx_sup
+        )
+
+        fecha_desvinc = st.date_input(
+            "Fecha de desvinculación",
+            value=df_empleado["fecha_desvinculacion"]
+            if pd.notnull(df_empleado["fecha_desvinculacion"]) else None
+        )
 
         guardar = st.form_submit_button("💾 Guardar cambios")
 
@@ -91,6 +123,7 @@ if modo == "Personal Existente":
                     perfil = %s,
                     horario = %s,
                     estado = %s,
+                    supervisor = %s,
                     fecha_desvinculacion = %s
                 WHERE id = %s
             """, (
@@ -101,19 +134,21 @@ if modo == "Personal Existente":
                 int(perfil),
                 horario,
                 estado,
+                supervisor if supervisor != "" else None,
                 fecha_desvinc,
                 int(df_empleado["id"])
             ))
             conn.commit()
-            st.success("Cambios guardados correctamente")
+            st.success("✅ Cambios guardados correctamente")
         except Exception as e:
             conn.rollback()
-            st.error(f"Error al guardar cambios: {e}")
+            st.error(f"❌ Error al guardar cambios: {e}")
 
-# =========================
-# Modo: Crear Nuevo Personal
-# =========================
+# =====================================================
+# MODO: CREAR NUEVO PERSONAL
+# =====================================================
 elif modo == "Crear Nuevo Personal":
+
     st.subheader("➕ Crear nuevo personal")
 
     with st.form("nuevo_personal"):
@@ -127,6 +162,12 @@ elif modo == "Crear Nuevo Personal":
         )
         horario_n = st.text_input("Horario")
         estado_n = st.selectbox("Estado", ["activo", "inactivo"])
+
+        supervisor_n = st.selectbox(
+            "Supervisor",
+            lista_supervisores
+        )
+
         fecha_vinc_n = st.date_input("Fecha de vinculación")
 
         crear = st.form_submit_button("Crear persona")
@@ -143,8 +184,9 @@ elif modo == "Crear Nuevo Personal":
                     perfil,
                     horario,
                     estado,
+                    supervisor,
                     fecha_vinculacion
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
                 cedula_n,
                 nombre_n,
@@ -153,10 +195,11 @@ elif modo == "Crear Nuevo Personal":
                 int(perfil_n),
                 horario_n,
                 estado_n,
+                supervisor_n if supervisor_n != "" else None,
                 fecha_vinc_n
             ))
             conn.commit()
-            st.success("Personal creado correctamente")
+            st.success("✅ Personal creado correctamente")
         except Exception as e:
             conn.rollback()
-            st.error(f"Error al crear personal: {e}")
+            st.error(f"❌ Error al crear personal: {e}")
