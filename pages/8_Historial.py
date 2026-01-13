@@ -4,6 +4,9 @@ from db import get_connection
 
 st.title("📈 Historial de Reportes")
 
+# =========================
+# Control de acceso
+# =========================
 usuario = st.session_state.get("usuario")
 
 if not usuario:
@@ -11,13 +14,14 @@ if not usuario:
     st.stop()
 
 perfil = usuario["perfil"]
-puesto = usuario["puesto"]
-cedula = usuario["cedula"]
+puesto = usuario["puesto"].lower()
+cedula_usuario = usuario["cedula"]
+nombre_usuario = usuario["nombre"]
 
 conn = get_connection()
 
 # =========================
-# FILTRO DE FECHAS
+# Filtro de fechas
 # =========================
 col1, col2 = st.columns(2)
 with col1:
@@ -26,57 +30,71 @@ with col2:
     fecha_fin = st.date_input("Hasta")
 
 # =========================
-# PRODUCCIÓN
+# Filtro base por jerarquía
+# =========================
+where_extra = ""
+params_base = [fecha_inicio, fecha_fin]
+
+# Coordinador: ve todo
+if puesto == "coordinador":
+    where_extra = ""
+
+# Supervisor: solo reportes donde él es el supervisor histórico
+elif perfil == 3:
+    where_extra = " AND r.supervisor_nombre = %s"
+    params_base.append(nombre_usuario)
+
+# Operador: solo sus propios reportes
+else:
+    where_extra = " AND r.cedula_personal = %s"
+    params_base.append(cedula_usuario)
+
+# =========================
+# REPORTES DE PRODUCCIÓN
 # =========================
 st.subheader("📊 Reportes de Producción")
 
-query_prod = """
+query_prod = f"""
 SELECT 
     r.fecha_reporte,
     r.horas,
+    r.supervisor_nombre AS supervisor,
     r.zona,
+    r.produccion,
     r.aprobados,
     r.rechazados,
-    r.produccion,
     r.observaciones
 FROM reportes r
 WHERE r.tipo_reporte = 'produccion'
 AND r.fecha_reporte BETWEEN %s AND %s
+{where_extra}
+ORDER BY r.fecha_reporte
 """
 
-params = [fecha_inicio, fecha_fin]
-
-if perfil != 1:
-    query_prod += " AND r.cedula_personal = %s"
-    params.append(cedula)
-
-df_prod = pd.read_sql(query_prod, conn, params=params)
+df_prod = pd.read_sql(query_prod, conn, params=params_base)
 st.dataframe(df_prod, use_container_width=True)
 
 # =========================
-# EVENTOS
+# REPORTES DE EVENTOS
 # =========================
 st.subheader("🗂️ Reportes de Eventos")
 
-query_eventos = """
+query_eventos = f"""
 SELECT 
     r.fecha_reporte,
     r.horas,
+    r.supervisor_nombre AS supervisor,
     te.nombre AS tipo_evento,
     r.observaciones
 FROM reportes r
 LEFT JOIN tipos_evento te ON te.id = r.tipo_evento_id
 WHERE r.tipo_reporte = 'evento'
 AND r.fecha_reporte BETWEEN %s AND %s
+{where_extra}
+ORDER BY r.fecha_reporte
 """
 
-params = [fecha_inicio, fecha_fin]
-
-if perfil != 1:
-    query_eventos += " AND r.cedula_personal = %s"
-    params.append(cedula)
-
-df_eventos = pd.read_sql(query_eventos, conn, params=params)
+df_eventos = pd.read_sql(query_eventos, conn, params=params_base)
 st.dataframe(df_eventos, use_container_width=True)
 
 # =========================
@@ -84,26 +102,18 @@ st.dataframe(df_eventos, use_container_width=True)
 # =========================
 st.subheader("⏱️ Resumen Diario de Horas")
 
-query_horas = """
+query_horas = f"""
 SELECT 
-    fecha_reporte,
-    SUM(horas) AS total_horas
-FROM reportes
-WHERE fecha_reporte BETWEEN %s AND %s
+    r.fecha_reporte,
+    SUM(r.horas) AS total_horas
+FROM reportes r
+WHERE r.fecha_reporte BETWEEN %s AND %s
+{where_extra}
+GROUP BY r.fecha_reporte
+ORDER BY r.fecha_reporte
 """
 
-params = [fecha_inicio, fecha_fin]
-
-if perfil != 1:
-    query_horas += " AND cedula_personal = %s"
-    params.append(cedula)
-
-query_horas += """
-GROUP BY fecha_reporte
-ORDER BY fecha_reporte
-"""
-
-df_horas = pd.read_sql(query_horas, conn, params=params)
+df_horas = pd.read_sql(query_horas, conn, params=params_base)
 
 # Validación flexible de 8.5 horas
 df_horas["estado"] = df_horas["total_horas"].apply(
