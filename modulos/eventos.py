@@ -12,7 +12,7 @@ def render():
     usuario = st.session_state.get("usuario")
 
     perfil = usuario["perfil"]
-    puesto = usuario["puesto"].lower()
+    puesto = usuario["puesto"]
     cedula_reporta = usuario["cedula"]
     nombre_usuario = usuario["nombre"]
 
