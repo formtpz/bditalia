@@ -1,15 +1,14 @@
 import streamlit as st
 from db import get_connection
 from datetime import date
+from permisos import validar_acceso
 
 # =========================
 # Control de acceso
 # =========================
-usuario = st.session_state.get("usuario")
+validar_acceso("Eventos")
 
-if not usuario:
-    st.warning("Debe iniciar sesión")
-    st.stop()
+usuario = st.session_state.get("usuario")
 
 perfil = usuario["perfil"]
 puesto = usuario["puesto"].lower()
@@ -18,11 +17,19 @@ nombre_usuario = usuario["nombre"]
 
 # Perfiles permitidos
 # 1 = Admin / Coordinador
-# 2 = Operador
-# 3 = Supervisor
-if perfil not in (1, 2, 3):
-    st.error("No tiene permiso para acceder a esta sección")
+# 3 = Operativo / Supervisor
+if perfil not in (1, 3):
+    st.error("No tiene permiso para acceder a Reportes de Eventos")
     st.stop()
+
+# =========================
+# Configuración de página
+# =========================
+st.set_page_config(
+    page_title="Reporte de Eventos",
+    page_icon="📌",
+    layout="centered"
+)
 
 st.title("📌 Reporte de Eventos")
 
@@ -73,7 +80,7 @@ else:
         SELECT cedula, nombre_completo, perfil, puesto, supervisor
         FROM personal
         WHERE estado = 'activo'
-        AND supervisor = %s
+          AND supervisor = %s
         ORDER BY nombre_completo
     """, (nombre_usuario,))
 
@@ -230,3 +237,4 @@ if submit:
         conn.rollback()
         st.error("❌ Error al guardar el evento")
         st.exception(e)
+
