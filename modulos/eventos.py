@@ -41,11 +41,11 @@ def render():
         st.stop()
 
     # Restricción para Operario Catastral
-    if puesto == "operario catastral":
+    if puesto == "Operario Catastral":
         tipos_evento = [
             (id_, nombre)
             for id_, nombre in tipos_evento
-            if id_ in (3, 17)
+            if id_ in (3, 16)
         ]
 
     if not tipos_evento:
