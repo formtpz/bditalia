@@ -113,7 +113,7 @@ if submit:
     try:
         cur.execute("""
             INSERT INTO reportes (
-                tipo_reporte,
+                tipo_reporte, 
                 cedula_personal,
                 cedula_quien_reporta,
                 supervisor_nombre,
@@ -133,7 +133,6 @@ if submit:
             )
             VALUES (
                 'produccion',
-                %s,
                 %s,
                 %s,
                 %s,
