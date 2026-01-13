@@ -113,7 +113,7 @@ def render():
         # =========================
         # Selección de personal
         # =========================
-        if puesto == "operario catastral":
+        if puesto == "Operario Catastral":
             personal_seleccionado = [
                 key for key, val in personal_dict.items()
                 if val["cedula"] == cedula_reporta
