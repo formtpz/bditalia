@@ -12,7 +12,7 @@ def render():
     usuario = st.session_state.get("usuario")
 
     perfil = usuario["perfil"]
-    puesto = usuario["puesto"]
+    puesto = usuario["puesto"].lower()
     cedula_reporta = usuario["cedula"]
     nombre_usuario = usuario["nombre"]
 
@@ -40,8 +40,10 @@ def render():
         st.error("No existen tipos de evento registrados")
         st.stop()
 
-    # Restricción para Operario Catastral
-    if puesto == "Operario Catastral":
+    # =========================
+    # Restricción Operador Catastral
+    # =========================
+    if perfil == 3 and puesto == "operario catastral":
         tipos_evento = [
             (id_, nombre)
             for id_, nombre in tipos_evento
@@ -57,21 +59,30 @@ def render():
     # =========================
     # Cargar personal según jerarquía
     # =========================
-    if puesto == "coordinador":
+    if perfil == 3 and puesto == "operario catastral":
+        # El operario SOLO se reporta a sí mismo
         cur.execute("""
             SELECT cedula, nombre_completo, perfil, puesto, supervisor
             FROM personal
-            WHERE estado = 'activo'
-            ORDER BY nombre_completo
-        """)
+            WHERE cedula = %s
+              AND estado = 'activo'
+        """, (cedula_reporta,))
     else:
-        cur.execute("""
-            SELECT cedula, nombre_completo, perfil, puesto, supervisor
-            FROM personal
-            WHERE estado = 'activo'
-              AND supervisor = %s
-            ORDER BY nombre_completo
-        """, (nombre_usuario,))
+        if puesto == "coordinador":
+            cur.execute("""
+                SELECT cedula, nombre_completo, perfil, puesto, supervisor
+                FROM personal
+                WHERE estado = 'activo'
+                ORDER BY nombre_completo
+            """)
+        else:
+            cur.execute("""
+                SELECT cedula, nombre_completo, perfil, puesto, supervisor
+                FROM personal
+                WHERE estado = 'activo'
+                  AND supervisor = %s
+                ORDER BY nombre_completo
+            """, (nombre_usuario,))
 
     personal = cur.fetchall()
 
@@ -113,11 +124,8 @@ def render():
         # =========================
         # Selección de personal
         # =========================
-        if puesto == "Operario Catastral":
-            personal_seleccionado = [
-                key for key, val in personal_dict.items()
-                if val["cedula"] == cedula_reporta
-            ]
+        if perfil == 3 and puesto == "operario catastral":
+            personal_seleccionado = list(personal_dict.keys())
             st.info("Como Operario Catastral, solo puede reportarse a sí mismo.")
         else:
             personal_seleccionado = st.multiselect(
