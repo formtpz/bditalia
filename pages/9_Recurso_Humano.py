@@ -1,19 +1,29 @@
 import streamlit as st
 import pandas as pd
 from db import get_connection
+from permisos import validar_acceso
 
 # =========================
 # Control de acceso
 # =========================
+# Solo perfiles autorizados según permisos.py
+validar_acceso("RRHH")
+
 usuario = st.session_state.get("usuario")
 
-if not usuario:
-    st.warning("Debe iniciar sesión")
-    st.stop()
-
-if usuario["perfil"] != 1 or usuario["puesto"].lower() != "coordinador":
+# Seguridad extra (opcional pero recomendable)
+if usuario["perfil"] != 1:
     st.error("Acceso restringido a RRHH")
     st.stop()
+
+# =========================
+# Configuración de página
+# =========================
+st.set_page_config(
+    page_title="RRHH – Gestión de Personal",
+    page_icon="👥",
+    layout="wide"
+)
 
 st.title("👥 RRHH – Gestión de Personal")
 
@@ -75,22 +85,33 @@ if modo == "Personal Existente":
     ].iloc[0]
 
     # Índice del supervisor actual
-    sup_actual = df_empleado["supervisor"] if pd.notnull(df_empleado["supervisor"]) else ""
-    idx_sup = lista_supervisores.index(sup_actual) if sup_actual in lista_supervisores else 0
+    sup_actual = (
+        df_empleado["supervisor"]
+        if pd.notnull(df_empleado["supervisor"])
+        else ""
+    )
+    idx_sup = (
+        lista_supervisores.index(sup_actual)
+        if sup_actual in lista_supervisores
+        else 0
+    )
 
     with st.form("editar_personal"):
         cedula = st.text_input("Cédula", value=df_empleado["cedula"])
         nombre = st.text_input("Nombre completo", value=df_empleado["nombre_completo"])
         contraseña = st.text_input("Contraseña", value=df_empleado["contraseña"])
         puesto = st.text_input("Puesto", value=df_empleado["puesto"])
+
         perfil = st.number_input(
-            "Perfil (1=Admin, 2=Operador, 3=Supervisor)",
+            "Perfil (1=Admin, 2=RRHH, 3=Operativo/Supervisor)",
             min_value=1,
             max_value=3,
             value=int(df_empleado["perfil"]),
             step=1
         )
+
         horario = st.text_input("Horario", value=df_empleado["horario"])
+
         estado = st.selectbox(
             "Estado",
             ["activo", "inactivo"],
@@ -106,7 +127,8 @@ if modo == "Personal Existente":
         fecha_desvinc = st.date_input(
             "Fecha de desvinculación",
             value=df_empleado["fecha_desvinculacion"]
-            if pd.notnull(df_empleado["fecha_desvinculacion"]) else None
+            if pd.notnull(df_empleado["fecha_desvinculacion"])
+            else None
         )
 
         guardar = st.form_submit_button("💾 Guardar cambios")
@@ -156,10 +178,14 @@ elif modo == "Crear Nuevo Personal":
         nombre_n = st.text_input("Nombre completo")
         password_n = st.text_input("Contraseña", type="password")
         puesto_n = st.text_input("Puesto")
+
         perfil_n = st.number_input(
-            "Perfil (1=Admin, 2=Operador, 3=Supervisor)",
-            min_value=1, max_value=3, step=1
+            "Perfil (1=Admin, 2=RRHH, 3=Operativo/Supervisor)",
+            min_value=1,
+            max_value=3,
+            step=1
         )
+
         horario_n = st.text_input("Horario")
         estado_n = st.selectbox("Estado", ["activo", "inactivo"])
 
