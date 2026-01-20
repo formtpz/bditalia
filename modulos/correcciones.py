@@ -139,109 +139,109 @@ def render():
 
 
     elif perfil == 1:
-    st.subheader("🧾 Correcciones pendientes")
+        st.subheader("🧾 Correcciones pendientes")
 
     # =====================================================
     # TABLA 1: CORRECCIONES PENDIENTES (EDITABLE)
     # =====================================================
-    df_corr = pd.read_sql("""
-        SELECT
-            id,
-            fecha,
-            cedula,
-            nombre,
-            id_asociado,
-            columna,
-            nuevo_valor,
-            solucion,
-            estado
-        FROM correcciones
-        WHERE estado = 'pendiente'
-        ORDER BY fecha
-    """, conn)
+        df_corr = pd.read_sql("""
+            SELECT
+                id,
+                fecha,
+                cedula,
+                nombre,
+                id_asociado,
+                columna,
+                nuevo_valor,
+                solucion,
+                estado
+            FROM correcciones
+            WHERE estado = 'pendiente'
+            ORDER BY fecha
+        """, conn)
 
-    if df_corr.empty:
-        st.info("No hay correcciones pendientes")
-        return
+        if df_corr.empty:
+            st.info("No hay correcciones pendientes")
+            return
 
-    df_corr_edit = st.data_editor(
-        df_corr,
-        use_container_width=True,
-        num_rows="fixed",
-        column_config={
-            "estado": st.column_config.SelectboxColumn(
-                "estado",
-                options=["pendiente", "corregido"]
-            )
-        },
-        disabled=[
-            "id",
-            "fecha",
-            "cedula",
-            "nombre",
-            "id_asociado",
-            "columna",
-            "nuevo_valor",
-            "solucion"
-        ],
-        key="editor_correcciones"
-    )
+        df_corr_edit = st.data_editor(
+            df_corr,
+            use_container_width=True,
+            num_rows="fixed",
+            column_config={
+                "estado": st.column_config.SelectboxColumn(
+                    "estado",
+                    options=["pendiente", "corregido"]
+                )
+            },
+            disabled=[
+                "id",
+                "fecha",
+                "cedula",
+                "nombre",
+                "id_asociado",
+                "columna",
+                "nuevo_valor",
+                "solucion"
+            ],
+            key="editor_correcciones"
+        )
 
-    if st.button("💾 Guardar cambios de correcciones"):
-        cur = conn.cursor()
-        for _, row in df_corr_edit.iterrows():
-            cur.execute("""
-                UPDATE correcciones
-                SET estado = %s
-                WHERE id = %s
-            """, (row["estado"], int(row["id"])))
-        conn.commit()
-        st.success("✅ Estados de correcciones actualizados")
-        st.rerun()
+        if st.button("💾 Guardar cambios de correcciones"):
+            cur = conn.cursor()
+            for _, row in df_corr_edit.iterrows():
+                cur.execute("""
+                    UPDATE correcciones
+                    SET estado = %s
+                    WHERE id = %s
+                """, (row["estado"], int(row["id"])))
+            conn.commit()
+            st.success("✅ Estados de correcciones actualizados")
+            st.rerun()
 
-    st.divider()
+        st.divider()
 
     # =====================================================
     # TABLA 2: REPORTES ASOCIADOS (EDITABLE)
     # =====================================================
-    st.subheader("📊 Reportes asociados a correcciones pendientes")
+        st.subheader("📊 Reportes asociados a correcciones pendientes")
 
-    ids_reportes = df_corr["id_asociado"].astype(int).unique().tolist()
+        ids_reportes = df_corr["id_asociado"].astype(int).unique().tolist()
 
-    df_rep = pd.read_sql("""
-        SELECT *
-        FROM reportes
-        WHERE id = ANY(%s)
-        ORDER BY id
-    """, conn, params=[ids_reportes])
+        df_rep = pd.read_sql("""
+            SELECT *
+            FROM reportes
+            WHERE id = ANY(%s)
+            ORDER BY id
+        """, conn, params=[ids_reportes])
 
-    if df_rep.empty:
-        st.info("No hay reportes asociados")
-        return
+        if df_rep.empty:
+            st.info("No hay reportes asociados")
+            return
 
-    df_rep_edit = st.data_editor(
-        df_rep,
-        use_container_width=True,
-        num_rows="fixed",
-        disabled=["id"],
-        key="editor_reportes"
-    )
+        df_rep_edit = st.data_editor(
+            df_rep,
+            use_container_width=True,
+            num_rows="fixed",
+            disabled=["id"],
+            key="editor_reportes"
+        )
 
-    if st.button("💾 Guardar cambios en reportes"):
-        cur = conn.cursor()
+        if st.button("💾 Guardar cambios en reportes"):
+            cur = conn.cursor()
 
-        columnas = [c for c in df_rep_edit.columns if c != "id"]
+            columnas = [c for c in df_rep_edit.columns if c != "id"]
 
-        for _, row in df_rep_edit.iterrows():
-            set_clause = ", ".join([f"{c} = %s" for c in columnas])
-            valores = [row[c] for c in columnas]
-            valores.append(int(row["id"]))
+            for _, row in df_rep_edit.iterrows():
+                set_clause = ", ".join([f"{c} = %s" for c in columnas])
+                valores = [row[c] for c in columnas]
+                valores.append(int(row["id"]))
 
-            cur.execute(
-                f"UPDATE reportes SET {set_clause} WHERE id = %s",
-                valores
-            )
+                cur.execute(
+                    f"UPDATE reportes SET {set_clause} WHERE id = %s",
+                    valores
+                )
 
-        conn.commit()
-        st.success("✅ Reportes actualizados correctamente")
+            conn.commit()
+            st.success("✅ Reportes actualizados correctamente")
 
