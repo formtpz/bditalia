@@ -17,6 +17,17 @@ def render():
 
     st.title("👥 RRHH – Gestión de Personal")
 
+    # =========================
+    # Mensajes post-acción
+    # =========================
+    if st.session_state.get("rrhh_success"):
+        st.success(st.session_state["rrhh_success"])
+        del st.session_state["rrhh_success"]
+
+    if st.session_state.get("rrhh_error"):
+        st.error(st.session_state["rrhh_error"])
+        del st.session_state["rrhh_error"]
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -204,13 +215,13 @@ def render():
                 ))
 
                 conn.commit()
-                st.success("✅ Personal actualizado correctamente")
+                st.session_state["rrhh_success"] = "✅ Personal actualizado correctamente"
                 st.rerun()
 
             except Exception as e:
                 conn.rollback()
-                st.error("❌ Error al guardar cambios")
-                st.exception(e)
+                st.session_state["rrhh_error"] = f"❌ Error al guardar cambios: {e}"
+                st.rerun()
 
     # =====================================================
     # MODO: CREAR NUEVO PERSONAL
@@ -290,10 +301,10 @@ def render():
                 ))
 
                 conn.commit()
-                st.success("✅ Personal creado correctamente")
+                st.session_state["rrhh_success"] = "✅ Personal creado correctamente"
                 st.rerun()
 
             except Exception as e:
                 conn.rollback()
-                st.error("❌ Error al crear personal")
-                st.exception(e)
+                st.session_state["rrhh_error"] = f"❌ Error al crear personal: {e}"
+                st.rerun()
