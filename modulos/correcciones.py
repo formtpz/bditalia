@@ -19,6 +19,38 @@ def render():
     # PERFIL 3 → SOLICITUD
     # =====================================================
     if perfil == 3:
+        st.subheader("📋 Registros")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fecha_inicio = st.date_input("Desde")
+        with col2:
+            fecha_fin = st.date_input("Hasta")
+
+        df_registros = pd.read_sql("""
+            SELECT
+                id,
+                fecha_reporte,
+                cedula_personal,
+                horas,
+                zona,
+                produccion,
+                aprobados,
+                rechazados,
+                observaciones
+            FROM reportes
+            WHERE fecha_reporte BETWEEN %s AND %s
+            ORDER BY fecha_reporte DESC
+        """, conn, params=[fecha_inicio, fecha_fin])
+
+        st.info("Seleccione visualmente el registro con error y copie el ID")
+        st.dataframe(df_registros, use_container_width=True)
+
+        st.divider()
+
+        # =====================================================
+        # ✏️ SOLICITUD DE CORRECCIÓN
+        # =====================================================
         st.subheader("✏️ Solicitar corrección")
 
         columnas_reportes = [
@@ -32,8 +64,16 @@ def render():
         ]
 
         with st.form("form_solicitud"):
-            id_asociado = st.text_input("ID del reporte")
-            columna = st.selectbox("Columna con error", columnas_reportes)
+            id_asociado = st.text_input(
+                "ID del reporte",
+                help="Copie el ID desde la tabla de registros"
+            )
+
+            columna = st.selectbox(
+                "Columna con error",
+                columnas_reportes
+            )
+
             nuevo_valor = st.text_input("Nuevo valor correcto")
 
             solucion = st.selectbox(
@@ -43,15 +83,22 @@ def render():
 
             detalle = st.text_area("Detalle del error")
 
-            submit = st.form_submit_button("Enviar solicitud")
+            submit = st.form_submit_button("📨 Enviar solicitud")
 
         if submit:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO correcciones (
-                    cedula, nombre, fecha, id_asociado,
-                    tipo_error, solucion, tabla,
-                    columna, nuevo_valor, estado
+                    cedula,
+                    nombre,
+                    fecha,
+                    id_asociado,
+                    tipo_error,
+                    solucion,
+                    tabla,
+                    columna,
+                    nuevo_valor,
+                    estado
                 )
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
@@ -67,19 +114,29 @@ def render():
                 "pendiente"
             ))
             conn.commit()
-            st.success("✅ Solicitud registrada")
+            st.success("✅ Solicitud registrada correctamente")
 
         st.divider()
 
+        # =====================================================
+        # 📜 HISTORIAL DE SOLICITUDES
+        # =====================================================
         st.subheader("📜 Mis solicitudes")
+
         df = pd.read_sql("""
-            SELECT fecha, id_asociado, columna, solucion, estado
+            SELECT
+                fecha,
+                id_asociado,
+                columna,
+                solucion,
+                estado
             FROM correcciones
             WHERE cedula = %s
             ORDER BY fecha DESC
         """, conn, params=[usuario["cedula"]])
 
         st.dataframe(df, use_container_width=True)
+
 
     # =====================================================
     # PERFIL 1 → APLICAR CORRECCIONES
