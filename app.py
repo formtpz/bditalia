@@ -89,7 +89,7 @@ elif opcion == "Correcciones":
     from modulos.correcciones import render
     render()
 
-elif opcion == "Cerrar_Sesion":
+elif opcion == "Cerrar Sesion":
     from modulos.cerrar_sesion import render
     render()
 
