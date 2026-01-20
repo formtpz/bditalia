@@ -78,7 +78,7 @@ def render():
 
             solucion = st.selectbox(
                 "Tipo de acción",
-                ["MODIFICAR", "ELIMINAR"]
+                ["Modificar", "Eliminar"]
             )
 
             detalle = st.text_area("Detalle del error")
