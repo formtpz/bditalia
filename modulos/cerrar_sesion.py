@@ -5,7 +5,7 @@ def render():
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Cerrar_Sesion")
+    validar_acceso("Cerrar Sesion")
 
     st.title("🚪 Cerrar sesión")
 
