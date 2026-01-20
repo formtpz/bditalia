@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from db import get_connection
 from permisos import validar_acceso
+from datetime import date
 
 def render():
     # =========================
@@ -10,8 +11,6 @@ def render():
     validar_acceso("RRHH")
 
     usuario = st.session_state.get("usuario")
-
-    # Seguridad adicional explícita
     if usuario["perfil"] != 1:
         st.error("⛔ Acceso restringido al módulo de RRHH")
         st.stop()
@@ -19,9 +18,10 @@ def render():
     st.title("👥 RRHH – Gestión de Personal")
 
     conn = get_connection()
+    cur = conn.cursor()
 
     # =========================
-    # Cargar posibles supervisores
+    # Supervisores disponibles
     # =========================
     df_supervisores = pd.read_sql("""
         SELECT nombre_completo
@@ -33,12 +33,10 @@ def render():
 
     lista_supervisores = [""] + df_supervisores["nombre_completo"].tolist()
 
-    # =========================
-    # Selección de modo
-    # =========================
     modo = st.radio(
-        "Seleccione una acción:",
-        ["Personal Existente", "Crear Nuevo Personal"]
+        "Seleccione una acción",
+        ["Personal Existente", "Crear Nuevo Personal"],
+        horizontal=True
     )
 
     # =====================================================
@@ -48,64 +46,62 @@ def render():
 
         df_personal = pd.read_sql("""
             SELECT
-                id,
-                cedula,
-                nombre_completo,
-                contraseña,
-                puesto,
-                perfil,
-                horario,
-                estado,
-                supervisor,
-                fecha_vinculacion,
-                fecha_desvinculacion
-            FROM personal
-            ORDER BY nombre_completo
+                p.id,
+                p.cedula,
+                p.nombre_completo,
+                p.contraseña,
+                p.puesto,
+                p.perfil,
+                p.horario,
+                p.estado,
+                p.supervisor,
+                p.fecha_vinculacion,
+                p.fecha_desvinculacion,
+
+                d.nombre_completo_signos,
+                d.correo_interno,
+                d.correo_externo,
+                d.telefono,
+                d.nota_gis
+            FROM personal p
+            LEFT JOIN personal_datos d
+                ON d.personal_id = p.id
+            ORDER BY p.nombre_completo
         """, conn)
 
-        st.subheader("📋 Personal existente")
-        st.info("Seleccione un empleado para editar sus datos")
-
-        empleado_seleccionado = st.selectbox(
+        empleado = st.selectbox(
             "Empleado",
             df_personal["nombre_completo"]
         )
 
-        df_empleado = df_personal[
-            df_personal["nombre_completo"] == empleado_seleccionado
-        ].iloc[0]
+        row = df_personal[df_personal["nombre_completo"] == empleado].iloc[0]
 
-        sup_actual = (
-            df_empleado["supervisor"]
-            if pd.notnull(df_empleado["supervisor"])
-            else ""
-        )
         idx_sup = (
-            lista_supervisores.index(sup_actual)
-            if sup_actual in lista_supervisores
+            lista_supervisores.index(row["supervisor"])
+            if row["supervisor"] in lista_supervisores
             else 0
         )
 
         with st.form("editar_personal"):
-            cedula = st.text_input("Cédula", value=df_empleado["cedula"])
-            nombre = st.text_input("Nombre completo", value=df_empleado["nombre_completo"])
-            contraseña = st.text_input("Contraseña", value=df_empleado["contraseña"])
-            puesto = st.text_input("Puesto", value=df_empleado["puesto"])
+            st.subheader("📌 Datos personales")
+
+            cedula = st.text_input("Cédula", row["cedula"])
+            nombre = st.text_input("Nombre completo", row["nombre_completo"])
+            password = st.text_input("Contraseña", row["contraseña"])
+            puesto = st.text_input("Puesto", row["puesto"])
 
             perfil = st.number_input(
-                "Perfil (1=Admin, 2=RRHH, 3=Operativo/Supervisor)",
+                "Perfil (1=Admin, 2=RRHH, 3=Operativo)",
                 min_value=1,
                 max_value=3,
-                value=int(df_empleado["perfil"]),
-                step=1
+                value=int(row["perfil"])
             )
 
-            horario = st.text_input("Horario", value=df_empleado["horario"])
-
+            horario = st.text_input("Horario", row["horario"])
             estado = st.selectbox(
                 "Estado",
                 ["activo", "inactivo"],
-                index=0 if df_empleado["estado"] == "activo" else 1
+                index=0 if row["estado"] == "activo" else 1
             )
 
             supervisor = st.selectbox(
@@ -114,17 +110,46 @@ def render():
                 index=idx_sup
             )
 
-            fecha_desvinc = st.date_input(
+            fecha_desv = st.date_input(
                 "Fecha de desvinculación",
-                value=df_empleado["fecha_desvinculacion"]
-                if pd.notnull(df_empleado["fecha_desvinculacion"])
+                value=row["fecha_desvinculacion"]
+                if pd.notnull(row["fecha_desvinculacion"])
                 else None
+            )
+
+            st.divider()
+            st.subheader("🧾 Datos complementarios")
+
+            nombre_signos = st.text_input(
+                "Nombre completo (con signos)",
+                value=row["nombre_completo_signos"] or ""
+            )
+
+            correo_int = st.text_input(
+                "Correo interno",
+                value=row["correo_interno"] or ""
+            )
+
+            correo_ext = st.text_input(
+                "Correo externo",
+                value=row["correo_externo"] or ""
+            )
+
+            telefono = st.text_input(
+                "Teléfono",
+                value=row["telefono"] or ""
+            )
+
+            nota_gis = st.number_input(
+                "Nota GIS",
+                min_value=0,
+                max_value=100,
+                value=int(row["nota_gis"]) if row["nota_gis"] is not None else 0
             )
 
             guardar = st.form_submit_button("💾 Guardar cambios")
 
         if guardar:
-            cur = conn.cursor()
             try:
                 cur.execute("""
                     UPDATE personal SET
@@ -141,81 +166,134 @@ def render():
                 """, (
                     cedula,
                     nombre,
-                    contraseña,
+                    password,
                     puesto,
                     int(perfil),
                     horario,
                     estado,
-                    supervisor if supervisor != "" else None,
-                    fecha_desvinc,
-                    int(df_empleado["id"])
+                    supervisor if supervisor else None,
+                    fecha_desv,
+                    int(row["id"])
                 ))
+
+                cur.execute("""
+                    INSERT INTO personal_datos (
+                        personal_id,
+                        nombre_completo_signos,
+                        correo_interno,
+                        correo_externo,
+                        telefono,
+                        nota_gis
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (personal_id)
+                    DO UPDATE SET
+                        nombre_completo_signos = EXCLUDED.nombre_completo_signos,
+                        correo_interno = EXCLUDED.correo_interno,
+                        correo_externo = EXCLUDED.correo_externo,
+                        telefono = EXCLUDED.telefono,
+                        nota_gis = EXCLUDED.nota_gis,
+                        fecha_actualizacion = CURRENT_TIMESTAMP
+                """, (
+                    int(row["id"]),
+                    nombre_signos,
+                    correo_int,
+                    correo_ext,
+                    telefono,
+                    nota_gis
+                ))
+
                 conn.commit()
-                st.success("✅ Cambios guardados correctamente")
+                st.success("✅ Personal actualizado correctamente")
+                st.rerun()
+
             except Exception as e:
                 conn.rollback()
-                st.error(f"❌ Error al guardar cambios: {e}")
+                st.error("❌ Error al guardar cambios")
+                st.exception(e)
 
     # =====================================================
     # MODO: CREAR NUEVO PERSONAL
     # =====================================================
-    elif modo == "Crear Nuevo Personal":
-
+    else:
         st.subheader("➕ Crear nuevo personal")
 
         with st.form("nuevo_personal"):
-            cedula_n = st.text_input("Cédula")
-            nombre_n = st.text_input("Nombre completo")
-            password_n = st.text_input("Contraseña", type="password")
-            puesto_n = st.text_input("Puesto")
+            cedula = st.text_input("Cédula")
+            nombre = st.text_input("Nombre completo")
+            password = st.text_input("Contraseña", type="password")
+            puesto = st.text_input("Puesto")
 
-            perfil_n = st.number_input(
-                "Perfil (1=Admin, 2=RRHH, 3=Operativo/Supervisor)",
+            perfil = st.number_input(
+                "Perfil (1=Admin, 2=RRHH, 3=Operativo)",
                 min_value=1,
-                max_value=3,
-                step=1
+                max_value=3
             )
 
-            horario_n = st.text_input("Horario")
-            estado_n = st.selectbox("Estado", ["activo", "inactivo"])
+            horario = st.text_input("Horario")
+            estado = st.selectbox("Estado", ["activo", "inactivo"])
+            supervisor = st.selectbox("Supervisor", lista_supervisores)
+            fecha_vinc = st.date_input("Fecha de vinculación", value=date.today())
 
-            supervisor_n = st.selectbox(
-                "Supervisor",
-                lista_supervisores
-            )
+            st.divider()
+            st.subheader("🧾 Datos complementarios")
 
-            fecha_vinc_n = st.date_input("Fecha de vinculación")
+            nombre_signos = st.text_input("Nombre completo (con signos)")
+            correo_int = st.text_input("Correo interno")
+            correo_ext = st.text_input("Correo externo")
+            telefono = st.text_input("Teléfono")
+            nota_gis = st.number_input("Nota GIS", min_value=0, max_value=100)
 
-            crear = st.form_submit_button("Crear persona")
+            crear = st.form_submit_button("Crear personal")
 
         if crear:
-            cur = conn.cursor()
             try:
                 cur.execute("""
                     INSERT INTO personal (
-                        cedula,
-                        nombre_completo,
-                        contraseña,
-                        puesto,
-                        perfil,
-                        horario,
-                        estado,
-                        supervisor,
-                        fecha_vinculacion
-                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        cedula, nombre_completo, contraseña,
+                        puesto, perfil, horario,
+                        estado, supervisor, fecha_vinculacion
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
                 """, (
-                    cedula_n,
-                    nombre_n,
-                    password_n,
-                    puesto_n,
-                    int(perfil_n),
-                    horario_n,
-                    estado_n,
-                    supervisor_n if supervisor_n != "" else None,
-                    fecha_vinc_n
+                    cedula,
+                    nombre,
+                    password,
+                    puesto,
+                    int(perfil),
+                    horario,
+                    estado,
+                    supervisor if supervisor else None,
+                    fecha_vinc
                 ))
+
+                personal_id = cur.fetchone()[0]
+
+                cur.execute("""
+                    INSERT INTO personal_datos (
+                        personal_id,
+                        nombre_completo_signos,
+                        correo_interno,
+                        correo_externo,
+                        telefono,
+                        nota_gis
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                """, (
+                    personal_id,
+                    nombre_signos,
+                    correo_int,
+                    correo_ext,
+                    telefono,
+                    nota_gis
+                ))
+
                 conn.commit()
                 st.success("✅ Personal creado correctamente")
+                st.rerun()
+
             except Exception as e:
                 conn.rollback()
-                st.error(f"❌ Error al crear personal: {e}")
+                st.error("❌ Error al crear personal")
+                st.exception(e)
