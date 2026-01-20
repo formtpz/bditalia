@@ -37,7 +37,7 @@ def render():
 
     total_personal = df_personal["cantidad"].sum()
 
-    df_ = pd.DataFrame(
+    df_total = pd.DataFrame(
         [{"puesto": "TOTAL", "cantidad": total_personal}]
     )
 
