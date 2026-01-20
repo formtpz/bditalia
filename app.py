@@ -84,6 +84,10 @@ elif opcion == "Eventos":
 elif opcion == "Historial":
     from modulos.historial import render
     render()
+  
+elif opcion == "Correcciones":
+    from modulos.correcciones import render
+    render()
 
 elif opcion == "Cerrar_Sesion":
     from modulos.cerrar_sesion import render
