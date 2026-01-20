@@ -75,4 +75,41 @@ def render():
         FROM reportes r
         JOIN personal p ON p.cedula = r.cedula_personal
         WHERE r.tipo_reporte = 'produccion'
-          AND r.fecha_reporte BETWEEN %s_
+          AND r.fecha_reporte BETWEEN %s AND %s
+        GROUP BY p.nombre_completo
+        ORDER BY total_produccion DESC
+    """, conn, params=[fecha_inicio, fecha_fin])
+
+    if df_prod.empty:
+        st.info("No hay datos de producción en el rango seleccionado")
+    else:
+        st.bar_chart(
+            df_prod.set_index("operador")
+        )
+
+        st.dataframe(df_prod, use_container_width=True)
+
+    st.divider()
+
+    # =====================================================
+    # C) CONTEO DE EVENTOS POR CATEGORÍA
+    # =====================================================
+    st.subheader("🗂️ Eventos por categoría")
+
+    df_eventos = pd.read_sql("""
+        SELECT
+            te.nombre AS tipo_evento,
+            COUNT(*) AS cantidad
+        FROM reportes r
+        LEFT JOIN tipos_evento te
+            ON te.id = r.tipo_evento_id
+        WHERE r.tipo_reporte = 'evento'
+          AND r.fecha_reporte BETWEEN %s AND %s
+        GROUP BY te.nombre
+        ORDER BY cantidad DESC
+    """, conn, params=[fecha_inicio, fecha_fin])
+
+    if df_eventos.empty:
+        st.info("No hay eventos registrados en el rango seleccionado")
+    else:
+        st.dataframe(df_eventos, use_container_width=True)
