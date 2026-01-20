@@ -69,6 +69,10 @@ with st.sidebar:
 # =========================
 # ROUTER DE MÓDULOS
 # =========================
+elif opcion == "Dashboards":
+    from modulos.dashboards import render
+    render()
+
 if opcion == "Produccion":
     from modulos.produccion import render
     render()
