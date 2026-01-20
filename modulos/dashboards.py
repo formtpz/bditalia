@@ -71,7 +71,7 @@ def render():
     df_prod = pd.read_sql("""
         SELECT
             p.nombre_completo AS operador,
-            SUM(r.produccion) AS total_produccion
+            SUM(COALESCE(r.produccion::numeric, 0)) AS total_produccion
         FROM reportes r
         JOIN personal p ON p.cedula = r.cedula_personal
         WHERE r.tipo_reporte = 'produccion'
@@ -79,6 +79,7 @@ def render():
         GROUP BY p.nombre_completo
         ORDER BY total_produccion DESC
     """, conn, params=[fecha_inicio, fecha_fin])
+
 
     if df_prod.empty:
         st.info("No hay datos de producción en el rango seleccionado")
