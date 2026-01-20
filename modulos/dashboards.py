@@ -38,7 +38,7 @@ def render():
     total_personal = df_personal["cantidad"].sum()
 
     df_ = pd.DataFrame(
-        [{"puesto": "Total Personal Proyecto", "cantidad": total_personal}]
+        [{"puesto": "TOTAL", "cantidad": total_personal}]
     )
 
     df_personal_resumen = pd.concat(
