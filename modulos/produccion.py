@@ -1,7 +1,33 @@
 import streamlit as st
+import json
 from datetime import date
 from db import get_connection
 from permisos import validar_acceso
+
+
+# =====================================================
+# Cargar GeoJSON y crear lookup de complejidad
+# =====================================================
+@st.cache_data
+def cargar_complejidad_geojson():
+    with open("/mnt/data/italia.geojson", "r", encoding="utf-8") as f:
+        geojson = json.load(f)
+
+    lookup = {}
+
+    for feature in geojson.get("features", []):
+        props = feature.get("properties", {})
+
+        asignacion = props.get("Asignacion")
+        bloque = props.get("BLOQUE")
+        complejidad = props.get("Complejidad")
+
+        if asignacion and bloque:
+            bloque_fmt = str(bloque).zfill(3)
+            key = f"{asignacion}{bloque_fmt}"
+            lookup[key] = complejidad
+
+    return lookup
 
 
 def render():
@@ -16,7 +42,6 @@ def render():
     puesto = usuario["puesto"]
     cedula_usuario = usuario["cedula"]
 
-    # Seguridad extra
     if perfil not in (1, 3):
         st.error("No tiene permiso para acceder a Producción")
         st.stop()
@@ -27,7 +52,7 @@ def render():
     cur = conn.cursor()
 
     # =========================
-    # Cargar procesos (excluye proceso 0)
+    # Procesos
     # =========================
     cur.execute("""
         SELECT id, nombre
@@ -36,11 +61,10 @@ def render():
         ORDER BY id
     """)
     procesos = cur.fetchall()
-
     procesos_dict = {nombre: pid for pid, nombre in procesos}
 
     # =========================
-    # Obtener supervisor real
+    # Supervisor real
     # =========================
     cur.execute("""
         SELECT supervisor
@@ -49,6 +73,11 @@ def render():
     """, (cedula_usuario,))
     row_sup = cur.fetchone()
     supervisor_nombre = row_sup[0] if row_sup else None
+
+    # =========================
+    # GeoJSON lookup
+    # =========================
+    lookup_complejidad = cargar_complejidad_geojson()
 
     # =========================
     # Formulario
@@ -62,30 +91,28 @@ def render():
         )
 
         # =========================
-        # Zona (Asignación + Bloque)
+        # Zona (estructura fija)
         # =========================
         asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 201)]
-        bloques = list(range(1, 201))
+        bloques = [str(i).zfill(3) for i in range(1, 202)]
 
         col_z1, col_z2 = st.columns(2)
 
         with col_z1:
-            asignacion = st.selectbox(
-                "Asignación",
-                asignaciones
-            )
+            asignacion = st.selectbox("Asignación", asignaciones)
 
         with col_z2:
-            bloque = st.selectbox(
-                "Bloque",
-                bloques
-            )
+            bloque = st.selectbox("Bloque", bloques)
 
-        # Zona final concatenada
         zona = f"{asignacion}{bloque}"
 
-        # Vista opcional de confirmación
-        st.caption(f"📍 Zona generada: **{zona}**")
+        complejidad = lookup_complejidad.get(zona)
+
+        st.caption(f"📍 Zona: **{zona}**")
+        if complejidad:
+            st.caption(f"🧠 Complejidad detectada: **{complejidad}**")
+        else:
+            st.warning("⚠️ Esta zona no tiene complejidad definida en el mapa")
 
         horas = st.number_input(
             "Horas laboradas",
@@ -94,20 +121,9 @@ def render():
             step=0.5
         )
 
-        produccion = st.number_input(
-            "Producción",
-            min_value=0
-        )
-
-        aprobados = st.number_input(
-            "Aprobados",
-            min_value=0
-        )
-
-        rechazados = st.number_input(
-            "Rechazados",
-            min_value=0
-        )
+        produccion = st.number_input("Producción", min_value=0)
+        aprobados = st.number_input("Aprobados", min_value=0)
+        rechazados = st.number_input("Rechazados", min_value=0)
 
         observaciones = st.text_area("Observaciones")
 
@@ -117,14 +133,13 @@ def render():
     # Guardar reporte
     # =========================
     if submit:
+        if not complejidad:
+            st.error("❌ No se puede guardar: la zona no tiene complejidad asignada")
+            st.stop()
+
         semana = fecha_reporte.isocalendar()[1]
         año = fecha_reporte.year
         proceso_id = procesos_dict[proceso_nombre]
-
-        # Validación extra (seguridad)
-        if proceso_id == 0:
-            st.error("❌ Proceso inválido. Seleccione un proceso válido.")
-            st.stop()
 
         try:
             cur.execute("""
@@ -139,6 +154,7 @@ def render():
                     horas,
                     proceso_id,
                     zona,
+                    complejidad,
                     produccion,
                     aprobados,
                     rechazados,
@@ -150,7 +166,7 @@ def render():
                     'produccion',
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s, %s, %s
                 )
             """, (
                 cedula_usuario,
@@ -162,6 +178,7 @@ def render():
                 horas,
                 proceso_id,
                 zona,
+                complejidad,
                 produccion,
                 aprobados,
                 rechazados,
