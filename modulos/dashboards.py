@@ -135,31 +135,49 @@ def render():
             key="map_fin"
         )
 
-    # ---- zonas reportadas ----
+    # ---- zonas + operadores ----
     df_zonas = pd.read_sql("""
-        SELECT DISTINCT zona
-        FROM reportes
-        WHERE tipo_reporte = 'produccion'
-          AND zona IS NOT NULL
-          AND fecha_reporte BETWEEN %s AND %s
+        SELECT
+            r.zona,
+            p.nombre_completo AS operador
+        FROM reportes r
+        JOIN personal p ON p.cedula = r.cedula_personal
+        WHERE r.tipo_reporte = 'produccion'
+          AND r.zona IS NOT NULL
+          AND r.fecha_reporte BETWEEN %s AND %s
     """, conn, params=[fecha_ini_map, fecha_fin_map])
 
-    zonas_reportadas = set(df_zonas["zona"].str.strip())
+    zona_operadores = {}
+
+    for _, row in df_zonas.iterrows():
+        zona = row["zona"].strip()
+        operador = row["operador"]
+
+        if zona not in zona_operadores:
+            zona_operadores[zona] = set()
+
+        zona_operadores[zona].add(operador)
+
+    zonas_reportadas = set(zona_operadores.keys())
 
     # ---- cargar geojson ----
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
-    # ---- asignar color por avance ----
+    # ---- asignar color + operador ----
     for feature in geojson["features"]:
         asignacion = str(feature["properties"]["Asignacion"]).strip()
         bloque = str(feature["properties"]["BLOQUE"]).strip()
         zona = f"{asignacion}{bloque}"
 
         if zona in zonas_reportadas:
-            feature["properties"]["color"] = [31, 119, 255, 180]   # Azul
+            feature["properties"]["color"] = [31, 119, 255, 180]  # Azul
+            feature["properties"]["operador"] = ", ".join(
+                sorted(zona_operadores.get(zona, []))
+            )
         else:
-            feature["properties"]["color"] = [220, 220, 220, 140] # Gris
+            feature["properties"]["color"] = [220, 220, 220, 140]  # Gris
+            feature["properties"]["operador"] = "—"
 
     if not zonas_reportadas:
         st.info(
@@ -172,11 +190,11 @@ def render():
         "GeoJsonLayer",
         data=geojson,
 
-        # 🔵 Relleno
+        # Relleno
         filled=True,
         get_fill_color="properties.color",
 
-        # 🔲 Contorno (CLAVE)
+        # Contorno
         stroked=True,
         get_line_color=[60, 60, 60, 255],
         line_width_min_pixels=1,
@@ -186,8 +204,7 @@ def render():
         auto_highlight=True,
     )
 
-
-    # ---- vista sin mapa base ----
+    # ---- vista (centrada manualmente, ajusta si quieres) ----
     view_state = pdk.ViewState(
         latitude=45.2,
         longitude=8.44,
@@ -203,7 +220,8 @@ def render():
             "html": """
             <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
             <b>Asignación:</b> {Asignacion}<br/>
-            <b>Bloque:</b> {BLOQUE}
+            <b>Bloque:</b> {BLOQUE}<br/>
+            <b>Operador:</b> {operador}
             """,
             "style": {
                 "backgroundColor": "#333",
@@ -213,4 +231,3 @@ def render():
     )
 
     st.pydeck_chart(deck, use_container_width=True)
-
