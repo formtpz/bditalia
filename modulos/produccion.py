@@ -31,6 +31,7 @@ def render():
     cur.execute("""
         SELECT id, nombre
         FROM procesos
+        WHERE id <> 0
         ORDER BY nombre
     """)
     procesos = cur.fetchall()
