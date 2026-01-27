@@ -6,6 +6,10 @@ from db import get_connection
 from permisos import validar_acceso
 
 
+def normalizar_bloque(bloque):
+    return str(bloque).zfill(3)
+
+
 def render():
     # =========================
     # Control de acceso
@@ -116,11 +120,10 @@ def render():
     st.divider()
 
     # =====================================================
-    # D) MAPA MINIMALISTA DE AVANCE POR BLOQUES
+    # D) MAPA DE AVANCE POR BLOQUES
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
-    # ---- filtros de fecha SOLO para el mapa ----
     col1, col2 = st.columns(2)
     with col1:
         fecha_ini_map = st.date_input(
@@ -135,7 +138,9 @@ def render():
             key="map_fin"
         )
 
-    # ---- zonas + operadores ----
+    # -----------------------------------------------------
+    # Zonas reportadas + operadores
+    # -----------------------------------------------------
     df_zonas = pd.read_sql("""
         SELECT
             r.zona,
@@ -153,21 +158,22 @@ def render():
         zona = row["zona"].strip()
         operador = row["operador"]
 
-        if zona not in zona_operadores:
-            zona_operadores[zona] = set()
-
-        zona_operadores[zona].add(operador)
+        zona_operadores.setdefault(zona, set()).add(operador)
 
     zonas_reportadas = set(zona_operadores.keys())
 
-    # ---- cargar geojson ----
+    # -----------------------------------------------------
+    # Cargar GeoJSON
+    # -----------------------------------------------------
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
-    # ---- asignar color + operador ----
+    # -----------------------------------------------------
+    # Pintar bloques según avance
+    # -----------------------------------------------------
     for feature in geojson["features"]:
         asignacion = str(feature["properties"]["Asignacion"]).strip()
-        bloque = str(feature["properties"]["BLOQUE"]).strip()
+        bloque = normalizar_bloque(feature["properties"]["BLOQUE"])
         zona = f"{asignacion}{bloque}"
 
         if zona in zonas_reportadas:
@@ -185,26 +191,21 @@ def render():
             "Se muestran todos los bloques con avance 0%."
         )
 
-    # ---- capa GeoJSON plana ----
+    # -----------------------------------------------------
+    # Capa GeoJSON
+    # -----------------------------------------------------
     layer = pdk.Layer(
         "GeoJsonLayer",
         data=geojson,
-
-        # Relleno
         filled=True,
         get_fill_color="properties.color",
-
-        # Contorno
         stroked=True,
         get_line_color=[60, 60, 60, 255],
         line_width_min_pixels=1,
-
-        # Interacción
         pickable=True,
         auto_highlight=True,
     )
 
-    # ---- vista (centrada manualmente, ajusta si quieres) ----
     view_state = pdk.ViewState(
         latitude=45.2,
         longitude=8.44,
