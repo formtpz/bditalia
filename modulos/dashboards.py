@@ -222,6 +222,7 @@ def render():
             <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
             <b>Asignación:</b> {Asignacion}<br/>
             <b>Bloque:</b> {BLOQUE}<br/>
+            <b>Complejidad:</b> {Complejidad}<br/>
             <b>Operador:</b> {operador}
             """,
             "style": {
