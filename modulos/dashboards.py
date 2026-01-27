@@ -174,6 +174,7 @@ def render():
     for feature in geojson["features"]:
         asignacion = str(feature["properties"]["Asignacion"]).strip()
         bloque = normalizar_bloque(feature["properties"]["BLOQUE"])
+        complejidad = str(feature["properties"]["Complejidad"]).strip()
         zona = f"{asignacion}{bloque}"
 
         if zona in zonas_reportadas:
