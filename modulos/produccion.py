@@ -10,7 +10,7 @@ from permisos import validar_acceso
 # =====================================================
 @st.cache_data
 def cargar_complejidad_geojson():
-    with open("/mnt/data/italia.geojson", "r", encoding="utf-8") as f:
+    with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
     lookup = {}
