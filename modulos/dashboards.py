@@ -191,7 +191,7 @@ def render():
     view_state = pdk.ViewState(
         latitude=45.2,
         longitude=8.44,
-        zoom=3
+        zoom=10
     )
 
     deck = pdk.Deck(
