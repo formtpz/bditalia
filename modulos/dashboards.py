@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import pydeck as pdk
-from datetime import date
 from db import get_connection
 from permisos import validar_acceso
 
@@ -56,7 +55,7 @@ def render():
     # =====================================================
     # FILTRO GLOBAL DE FECHAS
     # =====================================================
-    st.subheader("📅 Filtro de fechas (KPIs)")
+    st.subheader("📅 Filtro de fechas")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -117,26 +116,26 @@ def render():
     st.divider()
 
     # =====================================================
-    # D) MAPA 3D DE AVANCE POR BLOQUES
+    # D) MAPA MINIMALISTA DE AVANCE POR BLOQUES
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
-    # ---------- filtros de fecha del mapa ----------
+    # ---- filtros de fecha SOLO para el mapa ----
     col1, col2 = st.columns(2)
     with col1:
         fecha_ini_map = st.date_input(
-            "Inicio (mapa)",
+            "Desde (mapa)",
             value=fecha_inicio,
             key="map_ini"
         )
     with col2:
         fecha_fin_map = st.date_input(
-            "Fin (mapa)",
+            "Hasta (mapa)",
             value=fecha_fin,
             key="map_fin"
         )
 
-    # ---------- zonas reportadas ----------
+    # ---- zonas reportadas ----
     df_zonas = pd.read_sql("""
         SELECT DISTINCT zona
         FROM reportes
@@ -147,94 +146,61 @@ def render():
 
     zonas_reportadas = set(df_zonas["zona"].str.strip())
 
-    # ---------- cargar geojson ----------
+    # ---- cargar geojson ----
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
-    features = []
-
-    for feat in geojson["features"]:
-        asignacion = str(feat["properties"]["Asignacion"]).strip()
-        bloque = str(feat["properties"]["BLOQUE"]).strip()
+    # ---- asignar color por avance ----
+    for feature in geojson["features"]:
+        asignacion = str(feature["properties"]["Asignacion"]).strip()
+        bloque = str(feature["properties"]["BLOQUE"]).strip()
         zona = f"{asignacion}{bloque}"
 
-        completado = zona in zonas_reportadas
+        if zona in zonas_reportadas:
+            feature["properties"]["color"] = [31, 119, 255, 180]   # Azul
+        else:
+            feature["properties"]["color"] = [220, 220, 220, 140] # Gris
 
-        features.append({
-            "geometry": feat["geometry"],
-            "elevation": 120 if completado else 0,
-            "fill_color": [220, 220, 220, 80] if not completado else [31, 119, 255, 180],
-            "zona": zona,
-            "asignacion": asignacion,
-            "bloque": bloque
-        })
+    if not zonas_reportadas:
+        st.info(
+            "ℹ️ No existen reportes de producción en el rango seleccionado. "
+            "Se muestran todos los bloques con avance 0%."
+        )
 
-    geojson_3d = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "geometry": f["geometry"],
-                "properties": {
-                    "elevation": f["elevation"],
-                    "fill_color": f["fill_color"],
-                    "zona": f["zona"],
-                    "asignacion": f["asignacion"],
-                    "bloque": f["bloque"],
-                }
-            }
-            for f in features
-        ]
-    }
-
-    # ---------- capa 3D ----------
+    # ---- capa GeoJSON plana ----
     layer = pdk.Layer(
-        "PolygonLayer",
-        data=geojson_3d["features"],
-        get_polygon="geometry.coordinates",
-
-    # Relleno
-        get_fill_color="properties.fill_color",
-
-    # Elevación 3D
-        get_elevation="properties.elevation",
-        elevation_scale=1,
-        extruded=True,
-
-    # 🔴 CONTORNO (CLAVE)
-        stroked=True,
+        "GeoJsonLayer",
+        data=geojson,
+        get_fill_color="properties.color",
         get_line_color=[80, 80, 80, 200],
         line_width_min_pixels=1,
-
-    # Interacción
         pickable=True,
         auto_highlight=True,
     )
 
-
-    # ---------- vista inicial ----------
+    # ---- vista sin mapa base ----
     view_state = pdk.ViewState(
         latitude=41.9,
         longitude=12.5,
-        zoom=6,
-        pitch=55,
-        bearing=0
+        zoom=6
     )
 
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
+        map_style=None,
         tooltip={
             "html": """
-            <b>Zona:</b> {zona}<br/>
-            <b>Asignación:</b> {asignacion}<br/>
-            <b>Bloque:</b> {bloque}
+            <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
+            <b>Asignación:</b> {Asignacion}<br/>
+            <b>Bloque:</b> {BLOQUE}
             """,
             "style": {
-                "backgroundColor": "#1f77ff",
+                "backgroundColor": "#333",
                 "color": "white"
             }
         }
     )
 
     st.pydeck_chart(deck, use_container_width=True)
+
