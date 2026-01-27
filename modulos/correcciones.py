@@ -42,7 +42,7 @@ def render():
             FROM reportes
             WHERE fecha_reporte BETWEEN %s AND %s AND cedula_personal = %s
             ORDER BY fecha_reporte DESC
-        """, conn, params=[fecha_inicio, fecha_fin, cedula]
+        """, conn, params=[fecha_inicio, fecha_fin, cedula])
 
         st.info("Seleccione visualmente el registro con error y copie el ID")
         st.dataframe(df_registros, use_container_width=True)
