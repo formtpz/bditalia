@@ -3,6 +3,7 @@ from datetime import date
 from db import get_connection
 from permisos import validar_acceso
 
+
 def render():
     # =========================
     # Control de acceso
@@ -26,7 +27,7 @@ def render():
     cur = conn.cursor()
 
     # =========================
-    # Cargar procesos
+    # Cargar procesos (excluye proceso 0)
     # =========================
     cur.execute("""
         SELECT id, nombre
@@ -54,8 +55,37 @@ def render():
     # =========================
     with st.form("form_reporte_produccion"):
         fecha_reporte = st.date_input("Fecha", value=date.today())
-        proceso_nombre = st.selectbox("Proceso", procesos_dict.keys())
-        zona = st.text_input("Zona")
+
+        proceso_nombre = st.selectbox(
+            "Proceso",
+            procesos_dict.keys()
+        )
+
+        # =========================
+        # Zona (Asignación + Bloque)
+        # =========================
+        asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 101)]
+        bloques = list(range(1, 101))
+
+        col_z1, col_z2 = st.columns(2)
+
+        with col_z1:
+            asignacion = st.selectbox(
+                "Asignación",
+                asignaciones
+            )
+
+        with col_z2:
+            bloque = st.selectbox(
+                "Bloque",
+                bloques
+            )
+
+        # Zona final concatenada
+        zona = f"{asignacion}{bloque}"
+
+        # Vista opcional de confirmación
+        st.caption(f"📍 Zona generada: **{zona}**")
 
         horas = st.number_input(
             "Horas laboradas",
@@ -64,9 +94,20 @@ def render():
             step=0.5
         )
 
-        produccion = st.number_input("Producción", min_value=0)
-        aprobados = st.number_input("Aprobados", min_value=0)
-        rechazados = st.number_input("Rechazados", min_value=0)
+        produccion = st.number_input(
+            "Producción",
+            min_value=0
+        )
+
+        aprobados = st.number_input(
+            "Aprobados",
+            min_value=0
+        )
+
+        rechazados = st.number_input(
+            "Rechazados",
+            min_value=0
+        )
 
         observaciones = st.text_area("Observaciones")
 
@@ -79,6 +120,11 @@ def render():
         semana = fecha_reporte.isocalendar()[1]
         año = fecha_reporte.year
         proceso_id = procesos_dict[proceso_nombre]
+
+        # Validación extra (seguridad)
+        if proceso_id == 0:
+            st.error("❌ Proceso inválido. Seleccione un proceso válido.")
+            st.stop()
 
         try:
             cur.execute("""
@@ -131,3 +177,4 @@ def render():
             conn.rollback()
             st.error("❌ Error al guardar el reporte")
             st.exception(e)
+
