@@ -64,8 +64,8 @@ def render():
         # =========================
         # Zona (Asignación + Bloque)
         # =========================
-        asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 101)]
-        bloques = list(range(1, 101))
+        asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 201)]
+        bloques = list(range(1, 201))
 
         col_z1, col_z2 = st.columns(2)
 
