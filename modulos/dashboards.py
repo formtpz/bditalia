@@ -163,7 +163,7 @@ def render():
         features.append({
             "geometry": feat["geometry"],
             "elevation": 120 if completado else 0,
-            "fill_color": [31, 119, 255, 180] if completado else [200, 200, 200, 120],
+            "fill_color": [220, 220, 220, 80] if not completado else [31, 119, 255, 180],
             "zona": zona,
             "asignacion": asignacion,
             "bloque": bloque
