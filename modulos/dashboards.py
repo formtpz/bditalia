@@ -198,6 +198,7 @@ def render():
         layers=[layer],
         initial_view_state=view_state,
         map_style=None,
+        views=[pdk.View(type="MapView", controller=True)],
         tooltip={
             "html": """
             <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
