@@ -80,39 +80,42 @@ def render():
     lookup_complejidad = cargar_complejidad_geojson()
 
     # =========================
-    # Formulario
+    # PROCESO (FUERA DEL FORM)
+    # =========================
+    proceso_nombre = st.selectbox(
+        "Proceso",
+        procesos_dict.keys()
+    )
+    proceso_id = procesos_dict[proceso_nombre]
+
+    es_control_calidad = (proceso_id == 2)
+
+    # =========================
+    # ZONA (FUERA DEL FORM)
+    # =========================
+    asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 201)]
+    bloques = [str(i).zfill(3) for i in range(1, 202)]
+
+    col_z1, col_z2 = st.columns(2)
+    with col_z1:
+        asignacion = st.selectbox("Asignación", asignaciones)
+    with col_z2:
+        bloque = st.selectbox("Bloque", bloques)
+
+    zona = f"{asignacion}{bloque}"
+    complejidad = lookup_complejidad.get(zona)
+
+    st.caption(f"📍 Zona: **{zona}**")
+    if complejidad:
+        st.caption(f"🧠 Complejidad detectada: **{complejidad}**")
+    else:
+        st.warning("⚠️ Esta zona no tiene complejidad definida en el mapa")
+
+    # =========================
+    # FORMULARIO
     # =========================
     with st.form("form_reporte_produccion"):
         fecha_reporte = st.date_input("Fecha", value=date.today())
-
-        proceso_nombre = st.selectbox(
-            "Proceso",
-            procesos_dict.keys()
-        )
-
-        # =========================
-        # Zona (estructura fija)
-        # =========================
-        asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 201)]
-        bloques = [str(i).zfill(3) for i in range(1, 202)]
-
-        col_z1, col_z2 = st.columns(2)
-
-        with col_z1:
-            asignacion = st.selectbox("Asignación", asignaciones)
-
-        with col_z2:
-            bloque = st.selectbox("Bloque", bloques)
-
-        zona = f"{asignacion}{bloque}"
-
-        complejidad = lookup_complejidad.get(zona)
-
-        st.caption(f"📍 Zona: **{zona}**")
-        if complejidad:
-            st.caption(f"🧠 Complejidad detectada: **{complejidad}**")
-        else:
-            st.warning("⚠️ Esta zona no tiene complejidad definida en el mapa")
 
         horas = st.number_input(
             "Horas laboradas",
@@ -121,16 +124,22 @@ def render():
             step=0.5
         )
 
-        produccion = st.number_input("Producción", min_value=0)
-        aprobados = st.number_input("Aprobados", min_value=0)
-        rechazados = st.number_input("Rechazados", min_value=0)
+        # -------- CONTROL DE CAMPOS --------
+        if es_control_calidad:
+            aprobados = st.number_input("Aprobados", min_value=0)
+            rechazados = st.number_input("Rechazados", min_value=0)
+            produccion = 0
+        else:
+            produccion = st.number_input("Producción", min_value=0)
+            aprobados = 0
+            rechazados = 0
 
         observaciones = st.text_area("Observaciones")
 
         submit = st.form_submit_button("Guardar reporte")
 
     # =========================
-    # Guardar reporte
+    # GUARDAR REPORTE
     # =========================
     if submit:
         if not complejidad:
@@ -139,7 +148,6 @@ def render():
 
         semana = fecha_reporte.isocalendar()[1]
         año = fecha_reporte.year
-        proceso_id = procesos_dict[proceso_nombre]
 
         try:
             cur.execute("""
@@ -194,4 +202,3 @@ def render():
             conn.rollback()
             st.error("❌ Error al guardar el reporte")
             st.exception(e)
-
