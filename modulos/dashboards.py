@@ -192,13 +192,25 @@ def render():
         "PolygonLayer",
         data=geojson_3d["features"],
         get_polygon="geometry.coordinates",
+
+    # Relleno
         get_fill_color="properties.fill_color",
+
+    # Elevación 3D
         get_elevation="properties.elevation",
         elevation_scale=1,
         extruded=True,
+
+    # 🔴 CONTORNO (CLAVE)
+        stroked=True,
+        get_line_color=[80, 80, 80, 200],
+        line_width_min_pixels=1,
+
+    # Interacción
         pickable=True,
         auto_highlight=True,
     )
+
 
     # ---------- vista inicial ----------
     view_state = pdk.ViewState(
