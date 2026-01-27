@@ -171,12 +171,21 @@ def render():
     layer = pdk.Layer(
         "GeoJsonLayer",
         data=geojson,
+
+        # 🔵 Relleno
+        filled=True,
         get_fill_color="properties.color",
-        get_line_color=[80, 80, 80, 200],
+
+        # 🔲 Contorno (CLAVE)
+        stroked=True,
+        get_line_color=[60, 60, 60, 255],
         line_width_min_pixels=1,
+
+        # Interacción
         pickable=True,
         auto_highlight=True,
     )
+
 
     # ---- vista sin mapa base ----
     view_state = pdk.ViewState(
