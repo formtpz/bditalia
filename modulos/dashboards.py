@@ -189,9 +189,9 @@ def render():
 
     # ---- vista sin mapa base ----
     view_state = pdk.ViewState(
-        latitude=41.9,
-        longitude=12.5,
-        zoom=6
+        latitude=45.2,
+        longitude=8.44,
+        zoom=3
     )
 
     deck = pdk.Deck(
