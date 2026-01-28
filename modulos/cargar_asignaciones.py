@@ -7,7 +7,7 @@ def render():
     validar_acceso("Cargar Asignaciones")
 
     usuario = st.session_state["usuario"]
-    puesto = usuario["puesto"].lower()
+    puesto = usuario["puesto"]
 
     # ============================
     # RESTRICCIÓN DE ACCESO
