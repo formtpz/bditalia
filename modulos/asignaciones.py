@@ -5,9 +5,6 @@ from permisos import validar_acceso
 
 
 def render():
-    # =========================
-    # Control de acceso
-    # =========================
     validar_acceso("Asignación de Producción")
 
     usuario = st.session_state["usuario"]
@@ -25,7 +22,7 @@ def render():
     st.title("📍 Módulo de Asignaciones")
 
     if st.session_state.msg_ok:
-        st.success("✅ Cambios guardados correctamente")
+        st.success("✅ Cambio guardado correctamente")
         st.session_state.msg_ok = False
 
     # =====================================================
@@ -34,152 +31,117 @@ def render():
     if puesto != "Operario Catastral CC":
         st.subheader("👷 Operativo")
 
-        # ---------------------------------
-        # Autoasignación
-        # ---------------------------------
-        if st.button("🧲 Autoasignarme un bloque"):
+        # ---------- AUTOASIGNACIÓN POR ASIGNACIÓN ----------
+        if st.button("🧲 Autoasignarme una asignación completa"):
             cur = conn.cursor()
+
             cur.execute("""
-                SELECT id, asignacion, bloque
+                SELECT asignacion
                 FROM asignaciones
                 WHERE estado_actual = 'pendiente'
-                ORDER BY asignacion, bloque
+                GROUP BY asignacion
+                ORDER BY asignacion
                 LIMIT 1
             """)
             row = cur.fetchone()
 
-            if row:
-                aid, asig, blo = row
+            if not row:
+                st.info("No hay asignaciones pendientes")
+            else:
+                asignacion_sel = row[0]
 
                 cur.execute("""
                     UPDATE asignaciones
-                    SET estado_actual = 'asignado',
+                    SET operador_actual = %s,
                         proceso_actual = 'operativo',
-                        operador_actual = %s
-                    WHERE id = %s
-                """, (cedula, aid))
+                        estado_actual = 'asignado'
+                    WHERE asignacion = %s
+                      AND estado_actual = 'pendiente'
+                """, (cedula, asignacion_sel))
 
                 cur.execute("""
                     INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, bloque, usuario, puesto, proceso, estado)
-                    VALUES (%s,%s,%s,%s,%s,'operativo','asignado')
-                """, (aid, asig, blo, cedula, puesto))
+                    (asignacion_id, asignacion, usuario, puesto, proceso, estado)
+                    SELECT id, asignacion, %s, %s, 'operativo', 'asignado'
+                    FROM asignaciones
+                    WHERE asignacion = %s
+                """, (cedula, puesto, asignacion_sel))
 
                 conn.commit()
                 st.session_state.msg_ok = True
                 st.rerun()
-            else:
-                st.info("No hay bloques pendientes")
 
-        # ---------------------------------
-        # Tabla operador
-        # ---------------------------------
-        df = pd.read_sql("""
-            SELECT id, asignacion, bloque, estado_actual
+        # ---------- TABLA SOLO LECTURA ----------
+        filtro = st.selectbox(
+            "Filtrar por estado",
+            ["Todos", "pendiente", "asignado", "proceso", "finalizado"]
+        )
+
+        where = ""
+        params = [cedula]
+
+        if filtro != "Todos":
+            where = " AND estado_actual = %s"
+            params.append(filtro)
+
+        df = pd.read_sql(
+            f"""
+            SELECT asignacion, bloque, estado_actual
             FROM asignaciones
             WHERE operador_actual = %s
+            {where}
             ORDER BY asignacion, bloque
-        """, conn, params=(cedula,))
+            """,
+            conn,
+            params=tuple(params)
+        )
 
-        if not df.empty:
-            df_editable = df[df["estado_actual"] != "finalizado"]
-            df_bloqueado = df[df["estado_actual"] == "finalizado"]
+        st.dataframe(df, use_container_width=True)
 
-            # -------- Editables --------
-            if not df_editable.empty:
-                st.subheader("✏️ Bloques en edición")
+        # ---------- SELECCIÓN PUNTUAL ----------
+        opciones = df[df["estado_actual"] != "finalizado"].copy()
+        opciones["label"] = opciones["asignacion"] + " - Bloque " + opciones["bloque"].astype(str)
 
-                df_edit = st.data_editor(
-                    df_editable,
-                    disabled=["id", "asignacion", "bloque"],
-                    column_config={
-                        "estado_actual": st.column_config.SelectboxColumn(
-                            "Estado",
-                            options=["asignado", "proceso", "finalizado"]
-                        )
-                    },
-                    use_container_width=True
-                )
+        if opciones.empty:
+            return
 
-                if st.button("💾 Guardar cambios"):
-                    cur = conn.cursor()
+        seleccionado = st.selectbox(
+            "Seleccione bloque a trabajar",
+            opciones["label"]
+        )
 
-                    for _, r in df_edit.iterrows():
-                        asignacion_id = int(r["id"])
-                        nuevo_estado = r["estado_actual"]
+        fila = opciones[opciones["label"] == seleccionado].iloc[0]
 
-                        cur.execute("""
-                            SELECT estado_actual, asignacion, bloque
-                            FROM asignaciones
-                            WHERE id = %s
-                        """, (asignacion_id,))
+        nuevo_estado = st.selectbox(
+            "Nuevo estado",
+            ["asignado", "proceso", "finalizado"]
+        )
 
-                        estado_bd, asignacion, bloque = cur.fetchone()
+        if st.button("💾 Guardar cambio"):
+            cur = conn.cursor()
 
-                        if estado_bd != nuevo_estado:
-                            cur.execute("""
-                                UPDATE asignaciones
-                                SET estado_actual = %s
-                                WHERE id = %s
-                            """, (nuevo_estado, asignacion_id))
+            cur.execute("""
+                UPDATE asignaciones
+                SET estado_actual = %s
+                WHERE asignacion = %s
+                  AND bloque = %s
+            """, (nuevo_estado, fila["asignacion"], int(fila["bloque"])))
 
-                            cur.execute("""
-                                INSERT INTO asignaciones_historial
-                                (asignacion_id, asignacion, bloque, usuario, puesto, proceso, estado)
-                                VALUES (%s,%s,%s,%s,%s,'operativo',%s)
-                            """, (
-                                asignacion_id,
-                                asignacion,
-                                bloque,
-                                cedula,
-                                puesto,
-                                nuevo_estado
-                            ))
+            cur.execute("""
+                INSERT INTO asignaciones_historial
+                (asignacion, bloque, usuario, puesto, proceso, estado)
+                VALUES (%s,%s,%s,%s,'operativo',%s)
+            """, (
+                fila["asignacion"],
+                int(fila["bloque"]),
+                cedula,
+                puesto,
+                nuevo_estado
+            ))
 
-                    conn.commit()
-                    st.session_state.msg_ok = True
-                    st.rerun()
-
-            # -------- Bloqueados --------
-            if not df_bloqueado.empty:
-                st.subheader("🔒 Bloques finalizados (solo lectura)")
-                st.dataframe(df_bloqueado, use_container_width=True)
-
-        # ---------------------------------
-        # Rechazos
-        # ---------------------------------
-        st.subheader("❌ Rechazos pendientes")
-
-        df_rech = pd.read_sql("""
-            SELECT id, asignacion, bloque, estado_actual
-            FROM asignaciones
-            WHERE operador_actual = %s
-              AND estado_actual LIKE 'rechazado%%'
-            ORDER BY asignacion, bloque
-        """, conn, params=(cedula,))
-
-        if not df_rech.empty:
-            st.dataframe(df_rech, use_container_width=True)
-
-            if st.button("🔁 Marcar correcciones y enviar a QC"):
-                cur = conn.cursor()
-
-                for _, r in df_rech.iterrows():
-                    cur.execute("""
-                        UPDATE asignaciones
-                        SET proceso_actual = 'control_calidad'
-                        WHERE id = %s
-                    """, (int(r["id"]),))
-
-                    cur.execute("""
-                        INSERT INTO asignaciones_historial
-                        (asignacion_id, proceso, estado, usuario, puesto)
-                        VALUES (%s,'operativo','corregido',%s,%s)
-                    """, (int(r["id"]), cedula, puesto))
-
-                conn.commit()
-                st.session_state.msg_ok = True
-                st.rerun()
+            conn.commit()
+            st.session_state.msg_ok = True
+            st.rerun()
 
     # =====================================================
     # ================= CONTROL DE CALIDAD ================
@@ -187,131 +149,128 @@ def render():
     else:
         st.subheader("🧪 Control de Calidad")
 
-        # ---------------------------------
-        # Autoasignación QC
-        # ---------------------------------
-        if st.button("🧲 Autoasignar revisión"):
+        # ---------- AUTOASIGNACIÓN QC ----------
+        if st.button("🧲 Autoasignar una asignación para QC"):
             cur = conn.cursor()
+
             cur.execute("""
-                SELECT id, asignacion, bloque
+                SELECT asignacion
                 FROM asignaciones
-                WHERE estado_actual = 'finalizado'
-                ORDER BY asignacion, bloque
+                GROUP BY asignacion
+                HAVING COUNT(*) = COUNT(
+                    CASE WHEN estado_actual = 'finalizado' THEN 1 END
+                )
+                ORDER BY asignacion
                 LIMIT 1
             """)
             row = cur.fetchone()
 
-            if row:
-                aid, asig, blo = row
+            if not row:
+                st.info("No hay asignaciones listas para QC")
+            else:
+                asignacion_sel = row[0]
 
                 cur.execute("""
                     UPDATE asignaciones
-                    SET proceso_actual = 'control_calidad',
-                        qc_actual = %s,
+                    SET qc_actual = %s,
+                        proceso_actual = 'control_calidad',
                         estado_actual = 'pendiente'
-                    WHERE id = %s
-                """, (cedula, aid))
+                    WHERE asignacion = %s
+                """, (cedula, asignacion_sel))
 
                 cur.execute("""
                     INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, bloque, usuario, puesto, proceso, estado)
-                    VALUES (%s,%s,%s,%s,%s,'control_calidad','pendiente')
-                """, (aid, asig, blo, cedula, puesto))
+                    (asignacion_id, asignacion, usuario, puesto, proceso, estado)
+                    SELECT id, asignacion, %s, %s, 'control_calidad', 'pendiente'
+                    FROM asignaciones
+                    WHERE asignacion = %s
+                """, (cedula, puesto, asignacion_sel))
 
                 conn.commit()
                 st.session_state.msg_ok = True
                 st.rerun()
-            else:
-                st.info("No hay bloques finalizados")
 
-        # ---------------------------------
-        # Tabla QC
-        # ---------------------------------
-        df_qc = pd.read_sql("""
-            SELECT id, asignacion, bloque, estado_actual
-            FROM asignaciones
-            WHERE qc_actual = %s
-            ORDER BY asignacion, bloque
-        """, conn, params=(cedula,))
-
-        if df_qc.empty:
-            return
-
-        df_edit = st.data_editor(
-            df_qc,
-            disabled=["id", "asignacion", "bloque"],
-            column_config={
-                "estado_actual": st.column_config.SelectboxColumn(
-                    "Estado",
-                    options=["pendiente", "aprobado", "rechazado"]
-                )
-            },
-            use_container_width=True
+        # ---------- TABLA SOLO LECTURA ----------
+        filtro = st.selectbox(
+            "Filtrar por estado",
+            ["Todos", "pendiente", "rechazado", "aprobado"]
         )
 
-        observacion = st.text_area("Observación de rechazo (opcional)")
+        where = ""
+        params = [cedula]
 
-        # ---------------------------------
-        # Guardar revisión QC
-        # ---------------------------------
+        if filtro != "Todos":
+            where = " AND estado_actual LIKE %s"
+            params.append(f"%{filtro}%")
+
+        df = pd.read_sql(
+            f"""
+            SELECT asignacion, bloque, estado_actual
+            FROM asignaciones
+            WHERE qc_actual = %s
+            {where}
+            ORDER BY asignacion, bloque
+            """,
+            conn,
+            params=tuple(params)
+        )
+
+        st.dataframe(df, use_container_width=True)
+
+        # ---------- SELECCIÓN PUNTUAL ----------
+        opciones = df[~df["estado_actual"].str.contains("aprobado")].copy()
+        opciones["label"] = opciones["asignacion"] + " - Bloque " + opciones["bloque"].astype(str)
+
+        if opciones.empty:
+            return
+
+        seleccionado = st.selectbox(
+            "Seleccione bloque a revisar",
+            opciones["label"]
+        )
+
+        fila = opciones[opciones["label"] == seleccionado].iloc[0]
+
+        nuevo_estado = st.selectbox(
+            "Resultado QC",
+            ["pendiente", "aprobado", "rechazado"]
+        )
+
+        observacion = st.text_area("Observación (solo si rechaza)")
+
         if st.button("💾 Guardar revisión"):
             cur = conn.cursor()
-        
-            for _, r in df_edit.iterrows():
-                asignacion_id = int(r["id"])
-                nuevo_estado = r["estado_actual"]
-        
-                # Estado real en BD
+
+            if nuevo_estado == "aprobado":
                 cur.execute("""
-                    SELECT estado_actual, cantidad_rechazos
-                    FROM asignaciones
-                    WHERE id = %s
-                """, (asignacion_id,))
-        
-                estado_bd, cant_rech = cur.fetchone()
-        
-                # ❗ Si NO cambió, no hacer nada
-                if estado_bd == nuevo_estado:
-                    continue
-        
-                # ===== PENDIENTE =====
-                if nuevo_estado == "pendiente":
-                    continue
-        
-                # ===== APROBADO =====
-                elif nuevo_estado == "aprobado":
-                    cur.execute("""
-                        UPDATE asignaciones
-                        SET estado_actual = 'aprobado',
-                            cantidad_aprobaciones = cantidad_aprobaciones + 1
-                        WHERE id = %s
-                    """, (asignacion_id,))
-        
-                    cur.execute("""
-                        INSERT INTO asignaciones_historial
-                        (asignacion_id, proceso, estado, usuario, puesto)
-                        VALUES (%s,'control_calidad','aprobado',%s,%s)
-                    """, (asignacion_id, cedula, puesto))
-        
-                # ===== RECHAZADO =====
-                elif nuevo_estado == "rechazado":
-                    nuevo_rech = cant_rech + 1
-                    estado_txt = f"rechazado {nuevo_rech}"
-        
-                    cur.execute("""
-                        UPDATE asignaciones
-                        SET cantidad_rechazos = %s,
-                            estado_actual = %s,
-                            proceso_actual = 'operativo'
-                        WHERE id = %s
-                    """, (nuevo_rech, estado_txt, asignacion_id))
-        
-                    cur.execute("""
-                        INSERT INTO asignaciones_historial
-                        (asignacion_id, proceso, estado, usuario, puesto, observacion)
-                        VALUES (%s,'control_calidad',%s,%s,%s,%s)
-                    """, (asignacion_id, estado_txt, cedula, puesto, observacion))
-        
+                    UPDATE asignaciones
+                    SET estado_actual = 'aprobado'
+                    WHERE asignacion = %s
+                      AND bloque = %s
+                """, (fila["asignacion"], int(fila["bloque"])))
+
+            elif nuevo_estado == "rechazado":
+                cur.execute("""
+                    UPDATE asignaciones
+                    SET estado_actual = 'rechazado',
+                        proceso_actual = 'operativo'
+                    WHERE asignacion = %s
+                      AND bloque = %s
+                """, (fila["asignacion"], int(fila["bloque"])))
+
+            cur.execute("""
+                INSERT INTO asignaciones_historial
+                (asignacion, bloque, usuario, puesto, proceso, estado, observacion)
+                VALUES (%s,%s,%s,%s,'control_calidad',%s,%s)
+            """, (
+                fila["asignacion"],
+                int(fila["bloque"]),
+                cedula,
+                puesto,
+                nuevo_estado,
+                observacion
+            ))
+
             conn.commit()
             st.session_state.msg_ok = True
             st.rerun()
