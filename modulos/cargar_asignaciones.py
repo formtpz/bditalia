@@ -35,9 +35,9 @@ def render():
     # ============================
     # LEER ARCHIVO
     # ============================
-    if archivo.name.endswith(".csv"):
-        df = pd.read_csv(archivo)
-    else:
+    try:
+        df = pd.read_csv(archivo, sep=None, engine="python")
+    except Exception:
         df = pd.read_excel(archivo)
 
     df.columns = df.columns.str.lower().str.strip()
