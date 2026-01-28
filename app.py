@@ -73,7 +73,11 @@ if opcion == "Dashboards":
     from modulos.dashboards import render
     render()
 
-elif opcion == "Produccion":
+elif opcion == "Asignación de Producción":
+    from modulos.asignaciones import render
+    render()
+
+elif opcion == "Reportes Producción":
     from modulos.produccion import render
     render()
 
