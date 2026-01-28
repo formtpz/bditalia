@@ -77,6 +77,10 @@ elif opcion == "Asignación de Producción":
     from modulos.asignaciones import render
     render()
 
+elif opcion == "Cargar Asignaciones":
+    from modulos.cargar_asignaciones import render
+    render()
+
 elif opcion == "Reportes Producción":
     from modulos.produccion import render
     render()
