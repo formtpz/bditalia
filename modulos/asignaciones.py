@@ -75,7 +75,7 @@ def render():
         # ---------- TABLA SOLO LECTURA ----------
         filtro = st.selectbox(
             "Filtrar por estado",
-            ["Todos", "pendiente", "asignado", "proceso", "finalizado"]
+            ["Todos","rechazado", "pendiente", "asignado", "proceso", "finalizado"]
         )
 
         where = ""
