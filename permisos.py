@@ -1,9 +1,9 @@
 import streamlit as st
 
 PERMISOS_POR_PERFIL = {
-    1: ["Dashboards","RRHH","Cargar Asignaciones", "Producción", "Eventos", "Historial", "Correcciones", "Cerrar Sesion"],
+    1: ["Dashboards","RRHH","Cargar Asignaciones", "Reportes Producción", "Eventos", "Historial", "Correcciones", "Cerrar Sesion"],
     2: ["RRHH", "Cerrar Sesion"],
-    3: ["Producción", "Asignación de Producción", "Eventos", "Historial","Correcciones", "Cerrar Sesion"]
+    3: ["Reportes Producción", "Asignación de Producción", "Eventos", "Historial","Correcciones", "Cerrar Sesion"]
 }
 
 
