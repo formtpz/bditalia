@@ -154,7 +154,7 @@ def render():
             SELECT id, asignacion, bloque, estado_actual
             FROM asignaciones
             WHERE operador_actual = %s
-              AND estado_actual LIKE 'rechazado%'
+              AND estado_actual LIKE 'rechazado%%'
             ORDER BY asignacion, bloque
         """, conn, params=(cedula,))
 
