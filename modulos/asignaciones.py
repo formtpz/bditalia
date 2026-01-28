@@ -31,7 +31,7 @@ def render():
     if puesto != "Operario Catastral CC":
         st.subheader("👷 Operativo")
 
-        # ---------- AUTOASIGNACIÓN POR ASIGNACIÓN ----------
+        # ---------- AUTOASIGNACIÓN ----------
         if st.button("🧲 Autoasignarme una asignación completa"):
             cur = conn.cursor()
 
@@ -186,18 +186,18 @@ def render():
             else:
                 asignacion_sel = row[0]
 
+                # NO pisamos estado_actual aquí
                 cur.execute("""
                     UPDATE asignaciones
                     SET qc_actual = %s,
-                        proceso_actual = 'control_calidad',
-                        estado_actual = 'pendiente'
+                        proceso_actual = 'control_calidad'
                     WHERE asignacion = %s
                 """, (cedula, asignacion_sel))
 
                 cur.execute("""
                     INSERT INTO asignaciones_historial
                     (asignacion_id, asignacion, bloque, usuario, puesto, proceso, estado)
-                    SELECT id, asignacion, bloque, %s, %s, 'control_calidad', 'pendiente'
+                    SELECT id, asignacion, bloque, %s, %s, 'control_calidad', estado_actual
                     FROM asignaciones
                     WHERE asignacion = %s
                 """, (cedula, puesto, asignacion_sel))
@@ -232,47 +232,39 @@ def render():
         if st.button("💾 Guardar revisión"):
             cur = conn.cursor()
 
-            # Obtener contadores actuales
-            cur.execute("""
-                SELECT cantidad_rechazos, cantidad_aprobaciones
-                FROM asignaciones
-                WHERE asignacion = %s
-                  AND bloque = %s
-            """, (fila["asignacion"], int(fila["bloque"])))
-
-            cant_rech, cant_aprob = cur.fetchone()
-
-            # -------- APROBADO --------
             if nuevo_estado == "aprobado":
-                cant_aprob += 1
-
+                # Incremento ATÓMICO
                 cur.execute("""
                     UPDATE asignaciones
-                    SET estado_actual = 'aprobado',
-                        cantidad_aprobaciones = %s
+                    SET cantidad_aprobaciones = cantidad_aprobaciones + 1,
+                        estado_actual = 'aprobado'
                     WHERE asignacion = %s
                       AND bloque = %s
-                """, (cant_aprob, fila["asignacion"], int(fila["bloque"])))
+                """, (fila["asignacion"], int(fila["bloque"])))
 
                 estado_hist = "aprobado"
 
-            # -------- RECHAZADO --------
             else:
-                cant_rech += 1
-                estado_txt = f"rechazado {cant_rech}"
-
+                # Incremento ATÓMICO
                 cur.execute("""
                     UPDATE asignaciones
-                    SET estado_actual = %s,
-                        cantidad_rechazos = %s,
+                    SET cantidad_rechazos = cantidad_rechazos + 1,
+                        estado_actual = 'rechazado ' || (cantidad_rechazos + 1),
                         proceso_actual = 'operativo'
                     WHERE asignacion = %s
                       AND bloque = %s
-                """, (estado_txt, cant_rech, fila["asignacion"], int(fila["bloque"])))
+                """, (fila["asignacion"], int(fila["bloque"])))
 
-                estado_hist = estado_txt
+                # Obtener estado generado (rechazado X)
+                cur.execute("""
+                    SELECT estado_actual
+                    FROM asignaciones
+                    WHERE asignacion = %s
+                      AND bloque = %s
+                """, (fila["asignacion"], int(fila["bloque"])))
 
-            # -------- HISTORIAL --------
+                estado_hist = cur.fetchone()[0]
+
             cur.execute("""
                 INSERT INTO asignaciones_historial
                 (asignacion, bloque, usuario, puesto, proceso, estado, observacion)
