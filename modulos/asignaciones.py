@@ -4,7 +4,7 @@ from db import get_connection
 from permisos import validar_acceso
 
 def render():
-    validar_acceso("Produccion")
+    validar_acceso("Producción")
 
     usuario = st.session_state["usuario"]
     cedula = usuario["cedula"]
