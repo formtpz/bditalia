@@ -156,7 +156,7 @@ def render():
             WHERE operador_actual = %s
               AND estado_actual LIKE 'rechazado%'
             ORDER BY asignacion, bloque
-        """, conn, params=(cedula,)
+        """, conn, params=(cedula,))
 
         if not df_rech.empty:
             st.dataframe(df_rech, use_container_width=True)
@@ -232,7 +232,7 @@ def render():
             FROM asignaciones
             WHERE qc_actual = %s
             ORDER BY asignacion, bloque
-        """, conn, params=(cedula,)
+        """, conn, params=(cedula,))
 
         if df_qc.empty:
             return
