@@ -256,43 +256,62 @@ def render():
         # ---------------------------------
         if st.button("💾 Guardar revisión"):
             cur = conn.cursor()
-
+        
             for _, r in df_edit.iterrows():
                 asignacion_id = int(r["id"])
-                estado = r["estado_actual"]
-
-                if estado == "pendiente":
+                nuevo_estado = r["estado_actual"]
+        
+                # Estado real en BD
+                cur.execute("""
+                    SELECT estado_actual, cantidad_rechazos
+                    FROM asignaciones
+                    WHERE id = %s
+                """, (asignacion_id,))
+        
+                estado_bd, cant_rech = cur.fetchone()
+        
+                # ❗ Si NO cambió, no hacer nada
+                if estado_bd == nuevo_estado:
                     continue
-
-                if estado == "aprobado":
+        
+                # ===== PENDIENTE =====
+                if nuevo_estado == "pendiente":
+                    continue
+        
+                # ===== APROBADO =====
+                elif nuevo_estado == "aprobado":
                     cur.execute("""
                         UPDATE asignaciones
                         SET estado_actual = 'aprobado',
                             cantidad_aprobaciones = cantidad_aprobaciones + 1
                         WHERE id = %s
                     """, (asignacion_id,))
-
+        
                     cur.execute("""
                         INSERT INTO asignaciones_historial
                         (asignacion_id, proceso, estado, usuario, puesto)
                         VALUES (%s,'control_calidad','aprobado',%s,%s)
                     """, (asignacion_id, cedula, puesto))
-
-                elif estado == "rechazado":
+        
+                # ===== RECHAZADO =====
+                elif nuevo_estado == "rechazado":
+                    nuevo_rech = cant_rech + 1
+                    estado_txt = f"rechazado {nuevo_rech}"
+        
                     cur.execute("""
                         UPDATE asignaciones
-                        SET cantidad_rechazos = cantidad_rechazos + 1,
-                            estado_actual = 'rechazado ' || (cantidad_rechazos + 1),
+                        SET cantidad_rechazos = %s,
+                            estado_actual = %s,
                             proceso_actual = 'operativo'
                         WHERE id = %s
-                    """, (asignacion_id,))
-
+                    """, (nuevo_rech, estado_txt, asignacion_id))
+        
                     cur.execute("""
                         INSERT INTO asignaciones_historial
                         (asignacion_id, proceso, estado, usuario, puesto, observacion)
-                        VALUES (%s,'control_calidad','rechazado',%s,%s,%s)
-                    """, (asignacion_id, cedula, puesto, observacion))
-
+                        VALUES (%s,'control_calidad',%s,%s,%s,%s)
+                    """, (asignacion_id, estado_txt, cedula, puesto, observacion))
+        
             conn.commit()
             st.session_state.msg_ok = True
             st.rerun()
