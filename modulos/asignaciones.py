@@ -61,11 +61,12 @@ def render():
 
                 cur.execute("""
                     INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, usuario, puesto, proceso, estado)
-                    SELECT id, asignacion, %s, %s, 'operativo', 'asignado'
+                    (asignacion_id, asignacion, bloque, usuario, puesto, proceso, estado)
+                    SELECT id, asignacion, bloque, %s, %s, 'operativo', 'asignado'
                     FROM asignaciones
                     WHERE asignacion = %s
                 """, (cedula, puesto, asignacion_sel))
+
 
                 conn.commit()
                 st.session_state.msg_ok = True
