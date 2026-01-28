@@ -12,7 +12,7 @@ def render():
     # ============================
     # RESTRICCIÓN DE ACCESO
     # ============================
-    if puesto not in ("supervisor", "coordinador"):
+    if puesto not in ("Supervisor", "Coordinador", "Streamlit/pruebas"):
         st.error("⛔ Solo Supervisor o Coordinador puede cargar asignaciones")
         st.stop()
 
