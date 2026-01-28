@@ -34,7 +34,7 @@ def render():
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Producción")
+    validar_acceso("Reportes Producción")
 
     usuario = st.session_state.get("usuario")
 
