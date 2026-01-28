@@ -11,7 +11,7 @@ def render():
     puesto = usuario["puesto"]
 
     conn = get_connection()
-    st.title("📍 Módulo de Asignaciones")
+    st.title("Módulo Asignaciones")
 
     # =====================================================
     # OPERATIVO
