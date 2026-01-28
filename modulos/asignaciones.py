@@ -79,7 +79,7 @@ def render():
             FROM asignaciones
             WHERE operador_actual = %s
             ORDER BY asignacion, bloque
-        """, conn, params=[cedula])
+        """, conn, params=(cedula,))
 
         if not df.empty:
             df_editable = df[df["estado_actual"] != "finalizado"]
