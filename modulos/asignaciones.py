@@ -8,7 +8,7 @@ def render():
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Asignación Producción")
+    validar_acceso("Asignación de Producción")
 
     usuario = st.session_state["usuario"]
     cedula = usuario["cedula"]
