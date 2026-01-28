@@ -13,6 +13,9 @@ def render():
 
     conn = get_connection()
 
+    # =========================
+    # Mensaje persistente
+    # =========================
     if "msg_ok" not in st.session_state:
         st.session_state.msg_ok = False
 
@@ -28,9 +31,10 @@ def render():
     if puesto != "Operario Catastral CC":
         st.subheader("👷 Operativo")
 
-        # ---------- AUTOASIGNACIÓN ----------
+        # ---------- AUTOASIGNACIÓN POR ASIGNACIÓN ----------
         if st.button("🧲 Autoasignarme una asignación completa"):
             cur = conn.cursor()
+
             cur.execute("""
                 SELECT asignacion
                 FROM asignaciones
@@ -41,7 +45,9 @@ def render():
             """)
             row = cur.fetchone()
 
-            if row:
+            if not row:
+                st.info("No hay asignaciones pendientes")
+            else:
                 asignacion_sel = row[0]
 
                 cur.execute("""
@@ -64,13 +70,11 @@ def render():
                 conn.commit()
                 st.session_state.msg_ok = True
                 st.rerun()
-            else:
-                st.info("No hay asignaciones pendientes")
 
-        # ---------- TABLA ----------
+        # ---------- TABLA SOLO LECTURA ----------
         filtro = st.selectbox(
             "Filtrar por estado",
-            ["Todos", "rechazado", "asignado", "proceso", "finalizado", "corregido"]
+            ["Todos", "rechazado", "corregido", "asignado", "proceso", "finalizado"]
         )
 
         where = ""
@@ -81,7 +85,8 @@ def render():
 
         df = pd.read_sql(
             f"""
-            SELECT asignacion, bloque, estado_actual
+            SELECT asignacion, bloque, estado_actual,
+                   cantidad_rechazos, cantidad_aprobaciones
             FROM asignaciones
             WHERE operador_actual = %s
             {where}
@@ -93,12 +98,13 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
+        # ---------- SELECCIÓN PUNTUAL ----------
         opciones = df[df["estado_actual"] != "finalizado"].copy()
         if opciones.empty:
             return
 
         opciones["label"] = opciones["asignacion"] + " - Bloque " + opciones["bloque"].astype(str)
-        seleccionado = st.selectbox("Seleccione bloque", opciones["label"])
+        seleccionado = st.selectbox("Seleccione bloque a trabajar", opciones["label"])
         fila = opciones[opciones["label"] == seleccionado].iloc[0]
 
         estado_actual = fila["estado_actual"]
@@ -159,8 +165,10 @@ def render():
     else:
         st.subheader("🧪 Control de Calidad")
 
+        # ---------- AUTOASIGNACIÓN QC ----------
         if st.button("🧲 Autoasignar una asignación para QC"):
             cur = conn.cursor()
+
             cur.execute("""
                 SELECT asignacion
                 FROM asignaciones
@@ -173,7 +181,9 @@ def render():
             """)
             row = cur.fetchone()
 
-            if row:
+            if not row:
+                st.info("No hay asignaciones listas para QC")
+            else:
                 asignacion_sel = row[0]
 
                 cur.execute("""
@@ -195,11 +205,11 @@ def render():
                 conn.commit()
                 st.session_state.msg_ok = True
                 st.rerun()
-            else:
-                st.info("No hay asignaciones listas para QC")
 
+        # ---------- TABLA SOLO LECTURA ----------
         df = pd.read_sql("""
-            SELECT asignacion, bloque, estado_actual
+            SELECT asignacion, bloque, estado_actual,
+                   cantidad_rechazos, cantidad_aprobaciones
             FROM asignaciones
             WHERE qc_actual = %s
             ORDER BY asignacion, bloque
@@ -207,12 +217,13 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
+        # ---------- SELECCIÓN PUNTUAL ----------
         opciones = df[df["estado_actual"].isin(["pendiente", "corregido"])].copy()
         if opciones.empty:
             return
 
         opciones["label"] = opciones["asignacion"] + " - Bloque " + opciones["bloque"].astype(str)
-        seleccionado = st.selectbox("Seleccione bloque", opciones["label"])
+        seleccionado = st.selectbox("Seleccione bloque a revisar", opciones["label"])
         fila = opciones[opciones["label"] == seleccionado].iloc[0]
 
         nuevo_estado = st.selectbox("Resultado QC", ["aprobado", "rechazado"])
@@ -221,22 +232,47 @@ def render():
         if st.button("💾 Guardar revisión"):
             cur = conn.cursor()
 
+            # Obtener contadores actuales
+            cur.execute("""
+                SELECT cantidad_rechazos, cantidad_aprobaciones
+                FROM asignaciones
+                WHERE asignacion = %s
+                  AND bloque = %s
+            """, (fila["asignacion"], int(fila["bloque"])))
+
+            cant_rech, cant_aprob = cur.fetchone()
+
+            # -------- APROBADO --------
             if nuevo_estado == "aprobado":
+                cant_aprob += 1
+
                 cur.execute("""
                     UPDATE asignaciones
-                    SET estado_actual = 'aprobado'
+                    SET estado_actual = 'aprobado',
+                        cantidad_aprobaciones = %s
                     WHERE asignacion = %s
                       AND bloque = %s
-                """, (fila["asignacion"], int(fila["bloque"])))
+                """, (cant_aprob, fila["asignacion"], int(fila["bloque"])))
+
+                estado_hist = "aprobado"
+
+            # -------- RECHAZADO --------
             else:
+                cant_rech += 1
+                estado_txt = f"rechazado {cant_rech}"
+
                 cur.execute("""
                     UPDATE asignaciones
-                    SET estado_actual = 'rechazado',
+                    SET estado_actual = %s,
+                        cantidad_rechazos = %s,
                         proceso_actual = 'operativo'
                     WHERE asignacion = %s
                       AND bloque = %s
-                """, (fila["asignacion"], int(fila["bloque"])))
+                """, (estado_txt, cant_rech, fila["asignacion"], int(fila["bloque"])))
 
+                estado_hist = estado_txt
+
+            # -------- HISTORIAL --------
             cur.execute("""
                 INSERT INTO asignaciones_historial
                 (asignacion, bloque, usuario, puesto, proceso, estado, observacion)
@@ -246,7 +282,7 @@ def render():
                 int(fila["bloque"]),
                 cedula,
                 puesto,
-                nuevo_estado,
+                estado_hist,
                 observacion
             ))
 
