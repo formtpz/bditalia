@@ -10,9 +10,6 @@ def render():
     usuario = st.session_state["usuario"]
     puesto = usuario["puesto"]
 
-    # ============================
-    # RESTRICCIÓN DE ACCESO
-    # ============================
     if puesto not in ("Supervisor", "Coordinador", "Streamlit/pruebas"):
         st.error("⛔ Solo Supervisor o Coordinador puede cargar asignaciones")
         st.stop()
@@ -20,19 +17,19 @@ def render():
     st.title("📥 Cargar Asignaciones desde Excel / CSV")
 
     st.info("""
-    El archivo debe contener las columnas:
+    El archivo debe contener:
     - asignacion
     - bloque
     - complejidad
 
-    La región se selecciona en pantalla y se aplica a todo el archivo.
+    La región se selecciona en pantalla.
     """)
 
     # ============================
     # CONEXIÓN LIMPIA
     # ============================
     conn = get_connection()
-    conn.rollback()  # 🔥 limpia transacciones abortadas previas
+    conn.rollback()
     cur = conn.cursor()
 
     # ============================
@@ -46,16 +43,13 @@ def render():
     """)
     regiones = [r[0] for r in cur.fetchall()]
 
-    region_sel = st.selectbox(
-        "🌍 Región",
-        regiones + ["➕ Nueva región"]
-    )
+    region_sel = st.selectbox("🌍 Región", regiones + ["➕ Nueva región"])
 
     if region_sel == "➕ Nueva región":
         region_sel = st.text_input("Ingrese nueva región").strip()
 
     if not region_sel:
-        st.warning("Debe indicar una región antes de continuar")
+        st.warning("Debe indicar una región")
         return
 
     st.divider()
@@ -71,9 +65,6 @@ def render():
     if not archivo:
         return
 
-    # ============================
-    # LECTURA
-    # ============================
     try:
         df = pd.read_csv(archivo)
     except Exception:
@@ -81,49 +72,67 @@ def render():
 
     df.columns = df.columns.str.lower().str.strip()
 
-    columnas_requeridas = {"asignacion", "bloque", "complejidad"}
-    if not columnas_requeridas.issubset(df.columns):
-        st.error("❌ El archivo debe tener las columnas: asignacion, bloque y complejidad")
+    if not {"asignacion", "bloque", "complejidad"}.issubset(df.columns):
+        st.error("❌ El archivo debe tener asignacion, bloque y complejidad")
         st.stop()
 
     # ============================
-    # LIMPIEZA DE DATOS
+    # LIMPIEZA
     # ============================
     df["asignacion"] = df["asignacion"].astype(str).str.strip()
+    df["bloque"] = df["bloque"].astype(int)
     df["complejidad"] = df["complejidad"].astype(str).str.strip()
 
-    st.subheader("📄 Vista previa")
+    # ============================
+    # 1️⃣ ELIMINAR DUPLICADOS EN EL ARCHIVO
+    # ============================
+    df = df.drop_duplicates(subset=["asignacion", "bloque"])
+
+    st.subheader("📄 Vista previa (sin duplicados)")
     st.dataframe(df, width="stretch")
 
     # ============================
-    # CARGA OPTIMIZADA
+    # CARGA
     # ============================
     if st.button("🚀 Cargar asignaciones"):
-        total = len(df)
-        progress = st.progress(0)
-        status = st.empty()
-
-        registros = []
-        errores = []
-
         with st.spinner("⏳ Procesando archivo..."):
-            for i, (_, row) in enumerate(df.iterrows(), start=1):
-                try:
-                    bloque = int(row["bloque"])
 
-                    registros.append((
+            # ============================
+            # 2️⃣ CONSULTAR EXISTENTES EN BD
+            # ============================
+            cur.execute("""
+                SELECT asignacion, bloque
+                FROM asignaciones
+                WHERE region = %s
+            """, (region_sel,))
+
+            existentes = set(cur.fetchall())
+
+            # ============================
+            # 3️⃣ FILTRAR SOLO NUEVOS
+            # ============================
+            nuevos = []
+            omitidos = 0
+
+            for _, row in df.iterrows():
+                key = (row["asignacion"], row["bloque"])
+                if key in existentes:
+                    omitidos += 1
+                else:
+                    nuevos.append((
                         region_sel,
                         row["asignacion"],
-                        bloque,
+                        row["bloque"],
                         row["complejidad"]
                     ))
 
-                except Exception as e:
-                    errores.append(f"Fila {i}: {e}")
+            if not nuevos:
+                st.info("No hay nuevas asignaciones para insertar")
+                return
 
-                progress.progress(i / total)
-                status.text(f"Preparando fila {i} de {total}")
-
+            # ============================
+            # 4️⃣ INSERTAR (SIN ON CONFLICT)
+            # ============================
             try:
                 cur.executemany("""
                     INSERT INTO asignaciones (
@@ -133,13 +142,9 @@ def render():
                         complejidad
                     )
                     VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (region, asignacion, bloque) DO NOTHING
-                """, registros)
+                """, nuevos)
 
                 conn.commit()
-
-                insertados = cur.rowcount
-                omitidos = total - insertados
 
             except Exception as e:
                 conn.rollback()
@@ -150,12 +155,6 @@ def render():
         st.success(f"""
         ✅ Carga finalizada  
         🌍 Región: {region_sel}  
-        ➕ Insertados: {insertados}  
-        ⏭️ Omitidos: {omitidos}
+        ➕ Insertados: {len(nuevos)}  
+        ⏭️ Omitidos (ya existentes): {omitidos}
         """)
-
-        if errores:
-            with st.expander("⚠️ Filas con error de formato"):
-                for err in errores[:20]:
-                    st.text(err)
-
