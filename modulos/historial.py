@@ -17,7 +17,7 @@ def render():
     cedula_usuario = usuario["cedula"]
     nombre_usuario = usuario["nombre"]
 
-    if perfil not in (1, 3):
+    if perfil not in (1, 3, 4):
         st.error("No tiene permiso para acceder al historial")
         st.stop()
 
@@ -41,7 +41,7 @@ def render():
     params_base = [fecha_inicio, fecha_fin]
 
     # -------- OPERADOR --------
-    if perfil == 3 and puesto == "operario catastral":
+    if perfil == 3 or perfil == 4 and puesto == "operario catastral":
         where_extra = " AND r.cedula_personal = %s"
         params_base.append(cedula_usuario)
 
