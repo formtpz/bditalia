@@ -3,6 +3,7 @@ import pandas as pd
 from db import get_connection
 from permisos import validar_acceso
 
+
 def render():
     validar_acceso("Cargar Asignaciones")
 
@@ -22,8 +23,41 @@ def render():
     El archivo debe contener las columnas:
     - asignacion
     - bloque
+
+    La región se selecciona antes de la carga y se aplica a todo el archivo.
     """)
 
+    # ============================
+    # SELECCIÓN DE REGIÓN
+    # ============================
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT DISTINCT region
+        FROM asignaciones
+        WHERE region IS NOT NULL
+        ORDER BY region
+    """)
+    regiones = [r[0] for r in cur.fetchall()]
+
+    region_sel = st.selectbox(
+        "🌍 Región de las asignaciones",
+        regiones + ["➕ Nueva región"]
+    )
+
+    if region_sel == "➕ Nueva región":
+        region_sel = st.text_input("Ingrese el nombre de la nueva región").strip()
+
+    if not region_sel:
+        st.warning("Debe indicar una región antes de continuar")
+        return
+
+    st.divider()
+
+    # ============================
+    # CARGA DE ARCHIVO
+    # ============================
     archivo = st.file_uploader(
         "Seleccione archivo CSV o Excel",
         type=["csv", "xlsx"]
@@ -43,27 +77,32 @@ def render():
     df.columns = df.columns.str.lower().str.strip()
 
     if not {"asignacion", "bloque"}.issubset(df.columns):
-        st.error("❌ El archivo debe tener las columnas asignacion y bloque")
+        st.error("❌ El archivo debe tener las columnas: asignacion y bloque")
         st.stop()
+
+    # Limpieza básica
+    df["asignacion"] = df["asignacion"].astype(str).str.strip()
+    df["bloque"] = df["bloque"].astype(int)
 
     st.subheader("📄 Vista previa")
     st.dataframe(df, use_container_width=True)
 
+    # ============================
+    # INSERTAR EN BD
+    # ============================
     if st.button("🚀 Cargar asignaciones"):
-        conn = get_connection()
-        cur = conn.cursor()
-
         insertados = 0
         omitidos = 0
 
         for _, row in df.iterrows():
             try:
                 cur.execute("""
-                    INSERT INTO asignaciones (asignacion, bloque)
-                    VALUES (%s, %s)
-                    ON CONFLICT (asignacion, bloque) DO NOTHING
+                    INSERT INTO asignaciones (region, asignacion, bloque)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (region, asignacion, bloque) DO NOTHING
                 """, (
-                    str(row["asignacion"]).strip(),
+                    region_sel,
+                    row["asignacion"],
                     int(row["bloque"])
                 ))
 
@@ -79,6 +118,8 @@ def render():
 
         st.success(f"""
         ✅ Carga finalizada  
+        🌍 Región: {region_sel}  
         ➕ Insertados: {insertados}  
         ⏭️ Omitidos (duplicados o error): {omitidos}
         """)
+
