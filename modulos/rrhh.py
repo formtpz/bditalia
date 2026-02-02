@@ -308,3 +308,26 @@ def render():
                 conn.rollback()
                 st.session_state["rrhh_error"] = f"❌ Error al crear personal: {e}"
                 st.rerun()
+    # =====================================================
+    # LISTADO GENERAL DE PERSONAL (SOLO LECTURA)
+    # =====================================================
+    st.divider()
+    st.subheader("📋 Listado general de personal")
+
+    df_listado = pd.read_sql("""
+        SELECT
+            nombre_completo,
+            cedula,
+            puesto
+        FROM personal
+        ORDER BY nombre_completo
+    """, conn)
+
+    if df_listado.empty:
+        st.info("No hay personal registrado")
+    else:
+        st.dataframe(
+            df_listado,
+            use_container_width=True,
+            hide_index=True
+        )
