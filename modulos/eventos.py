@@ -17,7 +17,7 @@ def render():
     nombre_usuario = usuario["nombre"]
 
     # Seguridad extra
-    if perfil not in (1, 3):
+    if perfil not in (1, 3, 4):
         st.error("No tiene permiso para acceder a Reportes de Eventos")
         st.stop()
 
