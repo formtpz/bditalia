@@ -23,6 +23,7 @@ def render():
     El archivo debe contener las columnas:
     - asignacion
     - bloque
+    - complejidad
 
     La región se selecciona antes de la carga y se aplica a todo el archivo.
     """)
@@ -76,13 +77,22 @@ def render():
 
     df.columns = df.columns.str.lower().str.strip()
 
-    if not {"asignacion", "bloque"}.issubset(df.columns):
-        st.error("❌ El archivo debe tener las columnas: asignacion y bloque")
+    # ============================
+    # VALIDACIÓN DE COLUMNAS
+    # ============================
+    columnas_requeridas = {"asignacion", "bloque", "complejidad"}
+    if not columnas_requeridas.issubset(df.columns):
+        st.error(
+            "❌ El archivo debe tener las columnas: asignacion, bloque y complejidad"
+        )
         st.stop()
 
-    # Limpieza básica
+    # ============================
+    # LIMPIEZA DE DATOS
+    # ============================
     df["asignacion"] = df["asignacion"].astype(str).str.strip()
     df["bloque"] = df["bloque"].astype(int)
+    df["complejidad"] = df["complejidad"].astype(str).str.strip()
 
     st.subheader("📄 Vista previa")
     st.dataframe(df, use_container_width=True)
@@ -97,13 +107,19 @@ def render():
         for _, row in df.iterrows():
             try:
                 cur.execute("""
-                    INSERT INTO asignaciones (region, asignacion, bloque)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO asignaciones (
+                        region,
+                        asignacion,
+                        bloque,
+                        complejidad
+                    )
+                    VALUES (%s, %s, %s, %s)
                     ON CONFLICT (region, asignacion, bloque) DO NOTHING
                 """, (
                     region_sel,
                     row["asignacion"],
-                    int(row["bloque"])
+                    int(row["bloque"]),
+                    row["complejidad"]
                 ))
 
                 if cur.rowcount > 0:
