@@ -133,7 +133,7 @@ def render():
                         complejidad
                     )
                     VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (region, asignacion, bloque, complejidad) DO NOTHING
+                    ON CONFLICT (region, asignacion, bloque) DO NOTHING
                 """, registros)
 
                 conn.commit()
