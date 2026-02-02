@@ -17,7 +17,7 @@ def render():
     nombre_usuario = usuario["nombre"]
 
     # Seguridad extra
-    if perfil not in (1, 3, 4):
+    if  not in (1, 3, 4):
         st.error("No tiene permiso para acceder a Reportes de Eventos")
         st.stop()
 
@@ -43,7 +43,7 @@ def render():
     # =========================
     # Restricción Operador Catastral
     # =========================
-    if perfil == 3 and puesto == "operario catastral":
+    if perfil == 3 or perfil == 4 and puesto == "operario catastral":
         tipos_evento = [
             (id_, nombre)
             for id_, nombre in tipos_evento
@@ -59,7 +59,7 @@ def render():
     # =========================
     # Cargar personal según jerarquía
     # =========================
-    if perfil == 3 and puesto == "operario catastral":
+    if perfil == 3 or perfil == 4 and puesto == "operario catastral":
         # El operario SOLO se reporta a sí mismo
         cur.execute("""
             SELECT cedula, nombre_completo, perfil, puesto, supervisor
@@ -124,7 +124,7 @@ def render():
         # =========================
         # Selección de personal
         # =========================
-        if perfil == 3 and puesto == "operario catastral":
+        if perfil == 3 or perfil == 4 and puesto == "operario catastral":
             personal_seleccionado = list(personal_dict.keys())
             st.info("Como Operario Catastral, solo puede reportarse a sí mismo.")
         else:
