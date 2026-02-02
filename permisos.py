@@ -1,9 +1,47 @@
 import streamlit as st
 
+# =====================================================
+# PERMISOS POR PERFIL
+# =====================================================
 PERMISOS_POR_PERFIL = {
-    1: ["Dashboards","RRHH","Cargar Asignaciones", "Reportes Producción", "Eventos", "Historial", "Correcciones", "Cerrar Sesion"],
-    2: ["RRHH", "Cerrar Sesion"],
-    3: [ "Asignación de Producción","Reportes Producción", "Eventos", "Historial","Correcciones", "Cerrar Sesion"]
+    # 1 = Administrador / Coordinador
+    1: [
+        "Dashboards",
+        "RRHH",
+        "Cargar Asignaciones",
+        "Asignación de Producción",
+        "Reportes Producción",
+        "Eventos",
+        "Historial",
+        "Correcciones",
+        "Cerrar Sesion"
+    ],
+
+    # 2 = RRHH
+    2: [
+        "RRHH",
+        "Cerrar Sesion"
+    ],
+
+    # 3 = Operador / Supervisor
+    3: [
+        "Asignación de Producción",
+        "Reportes Producción",
+        "Eventos",
+        "Historial",
+        "Correcciones",
+        "Cerrar Sesion"
+    ],
+
+    # 4 = Control de Calidad (MISMO acceso que Operador)
+    4: [
+        "Asignación de Producción",
+        "Reportes Producción",
+        "Eventos",
+        "Historial",
+        "Correcciones",
+        "Cerrar Sesion"
+    ]
 }
 
 
@@ -32,3 +70,4 @@ def validar_acceso(nombre_pagina: str):
     if nombre_pagina not in PERMISOS_POR_PERFIL[perfil]:
         st.error("⛔ No tiene permiso para acceder a esta sección")
         st.stop()
+
