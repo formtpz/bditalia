@@ -10,9 +10,6 @@ def render():
     usuario = st.session_state["usuario"]
     puesto = usuario["puesto"]
 
-    # ============================
-    # RESTRICCIÓN DE ACCESO
-    # ============================
     if puesto not in ("Supervisor", "Coordinador", "Streamlit/pruebas"):
         st.error("⛔ Solo Supervisor o Coordinador puede cargar asignaciones")
         st.stop()
@@ -20,20 +17,22 @@ def render():
     st.title("📥 Cargar Asignaciones desde Excel / CSV")
 
     st.info("""
-    El archivo debe contener las columnas:
+    El archivo debe contener:
     - asignacion
     - bloque
     - complejidad
-
-    La región se selecciona antes de la carga y se aplica a todo el archivo.
     """)
 
     # ============================
-    # SELECCIÓN DE REGIÓN
+    # CONEXIÓN (LIMPIA)
     # ============================
     conn = get_connection()
+    conn.rollback()          # 🔥 limpia transacciones fallidas previas
     cur = conn.cursor()
 
+    # ============================
+    # REGIÓN
+    # ============================
     cur.execute("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -43,21 +42,21 @@ def render():
     regiones = [r[0] for r in cur.fetchall()]
 
     region_sel = st.selectbox(
-        "🌍 Región de las asignaciones",
+        "🌍 Región",
         regiones + ["➕ Nueva región"]
     )
 
     if region_sel == "➕ Nueva región":
-        region_sel = st.text_input("Ingrese el nombre de la nueva región").strip()
+        region_sel = st.text_input("Ingrese nueva región").strip()
 
     if not region_sel:
-        st.warning("Debe indicar una región antes de continuar")
+        st.warning("Debe indicar una región")
         return
 
     st.divider()
 
     # ============================
-    # CARGA DE ARCHIVO
+    # ARCHIVO
     # ============================
     archivo = st.file_uploader(
         "Seleccione archivo CSV o Excel",
@@ -67,75 +66,82 @@ def render():
     if not archivo:
         return
 
-    # ============================
-    # LEER ARCHIVO
-    # ============================
     try:
-        df = pd.read_csv(archivo, sep=None, engine="python")
+        df = pd.read_csv(archivo)
     except Exception:
         df = pd.read_excel(archivo)
 
     df.columns = df.columns.str.lower().str.strip()
 
-    # ============================
-    # VALIDACIÓN DE COLUMNAS
-    # ============================
-    columnas_requeridas = {"asignacion", "bloque", "complejidad"}
-    if not columnas_requeridas.issubset(df.columns):
-        st.error(
-            "❌ El archivo debe tener las columnas: asignacion, bloque y complejidad"
-        )
+    if not {"asignacion", "bloque", "complejidad"}.issubset(df.columns):
+        st.error("❌ El archivo debe tener asignacion, bloque y complejidad")
         st.stop()
 
-    # ============================
-    # LIMPIEZA DE DATOS
-    # ============================
+    # Limpieza
     df["asignacion"] = df["asignacion"].astype(str).str.strip()
-    df["bloque"] = df["bloque"].astype(int)
     df["complejidad"] = df["complejidad"].astype(str).str.strip()
 
     st.subheader("📄 Vista previa")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
 
     # ============================
-    # INSERTAR EN BD
+    # CARGA
     # ============================
     if st.button("🚀 Cargar asignaciones"):
+        total = len(df)
         insertados = 0
         omitidos = 0
+        errores = []
 
-        for _, row in df.iterrows():
-            try:
-                cur.execute("""
-                    INSERT INTO asignaciones (
-                        region,
-                        asignacion,
+        progress = st.progress(0)
+        status = st.empty()
+
+        with st.spinner("⏳ Procesando archivo..."):
+            for i, (_, row) in enumerate(df.iterrows(), start=1):
+                try:
+                    status.text(f"Procesando fila {i} de {total}")
+
+                    bloque = int(row["bloque"])
+
+                    cur.execute("""
+                        INSERT INTO asignaciones (
+                            region,
+                            asignacion,
+                            bloque,
+                            complejidad
+                        )
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (region, asignacion, bloque) DO NOTHING
+                    """, (
+                        region_sel,
+                        row["asignacion"],
                         bloque,
-                        complejidad
-                    )
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (region, asignacion, bloque) DO NOTHING
-                """, (
-                    region_sel,
-                    row["asignacion"],
-                    int(row["bloque"]),
-                    row["complejidad"]
-                ))
+                        row["complejidad"]
+                    ))
 
-                if cur.rowcount > 0:
-                    insertados += 1
-                else:
+                    conn.commit()
+
+                    if cur.rowcount > 0:
+                        insertados += 1
+                    else:
+                        omitidos += 1
+
+                except Exception as e:
+                    conn.rollback()
                     omitidos += 1
+                    errores.append(f"Fila {i}: {e}")
 
-            except Exception:
-                omitidos += 1
-
-        conn.commit()
+                progress.progress(i / total)
 
         st.success(f"""
         ✅ Carga finalizada  
         🌍 Región: {region_sel}  
         ➕ Insertados: {insertados}  
-        ⏭️ Omitidos (duplicados o error): {omitidos}
+        ⏭️ Omitidos: {omitidos}
         """)
+
+        if errores:
+            with st.expander("⚠️ Ver errores detectados"):
+                for err in errores[:20]:
+                    st.text(err)
 
