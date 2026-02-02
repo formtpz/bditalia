@@ -9,7 +9,8 @@ def render():
 
     usuario = st.session_state["usuario"]
     cedula = usuario["cedula"]
-    puesto = usuario["puesto"]
+    perfil = usuario["perfil"]
+    puesto = usuario["puesto"]  # solo histórico
 
     conn = get_connection()
     cur = conn.cursor()
@@ -46,7 +47,7 @@ def render():
     # =====================================================
     # ======================= OPERADOR ====================
     # =====================================================
-    if puesto != "Operario Catastral CC":
+    if perfil == 3:
         st.subheader("👷 Operativo")
 
         # ---------- AUTOASIGNACIÓN ----------
@@ -103,8 +104,7 @@ def render():
             where = " AND estado_actual LIKE %s"
             params.append(f"%{filtro}%")
 
-        df = pd.read_sql(
-            f"""
+        df = pd.read_sql(f"""
             SELECT asignacion, bloque, estado_actual,
                    cantidad_rechazos, cantidad_aprobaciones
             FROM asignaciones
@@ -112,10 +112,7 @@ def render():
               AND region = %s
             {where}
             ORDER BY asignacion, bloque
-            """,
-            conn,
-            params=tuple(params)
-        )
+        """, conn, params=params)
 
         st.dataframe(df, use_container_width=True)
 
@@ -184,7 +181,7 @@ def render():
     # =====================================================
     # ================= CONTROL DE CALIDAD ================
     # =====================================================
-    else:
+    elif perfil == 4:
         st.subheader("🧪 Control de Calidad")
 
         # ---------- AUTOASIGNACIÓN QC ----------
@@ -301,4 +298,10 @@ def render():
             conn.commit()
             st.session_state.msg_ok = True
             st.rerun()
+
+    # =====================================================
+    # ================= PERFIL NO VÁLIDO ==================
+    # =====================================================
+    else:
+        st.error("⛔ Perfil no autorizado para este módulo")
 
