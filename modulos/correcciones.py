@@ -17,9 +17,9 @@ def render():
     st.title("🛠️ Correcciones de Reportes")
 
     # =====================================================
-    # PERFIL 3 → SOLICITUD
+    #  3 → SOLICITUD
     # =====================================================
-    if perfil == 3:
+    if perfil == 3 or perfil == 4:
         st.subheader("📋 Registros")
 
         col1, col2 = st.columns(2)
