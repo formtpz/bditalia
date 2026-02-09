@@ -86,7 +86,7 @@ def render():
     with col3:
         region_seleccionada = st.selectbox("Región", lista_regiones)
 
-    # -------- Asignaciones --------
+    # -------- Asignaciones (fuente única) --------
     where_region = ""
     params = []
 
@@ -107,9 +107,10 @@ def render():
         {where_region}
     """, conn, params=params)
 
+    # Diccionario clave → info
     info_por_bloque = {
         (row["region"], row["asignacion"], int(row["bloque"])): {
-            "estado": row["estado_actual"],
+            "estado": str(row["estado_actual"]).lower().strip(),
             "operador": row["operador"]
         }
         for _, row in df_asig.iterrows()
@@ -130,12 +131,13 @@ def render():
             estado = info_por_bloque[key]["estado"]
             operador = info_por_bloque[key]["operador"]
 
-            if estado == "terminado":
+            # 🎨 COLORES DEFINITIVOS
+            if estado == "finalizado":
                 color = [46, 204, 113, 180]   # Verde
-            elif estado == "en_proceso":
-                color = [241, 196, 15, 180]   # Amarillo
+            elif estado == "asignado":
+                color = [52, 152, 219, 180]   # Azul
             else:
-                color = [52, 152, 219, 180]   # Azul (pendiente)
+                color = [241, 196, 15, 180]   # Amarillo (cualquier otro)
 
             feature["properties"]["color"] = color
             feature["properties"]["operador"] = operador
