@@ -60,11 +60,11 @@ def render():
     st.divider()
 
     # =====================================================
-    # D) MAPA – AVANCE POR BLOQUES
+    # MAPA – AVANCE POR BLOQUES
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
-    # -------- Regiones desde asignaciones (fuente oficial) --------
+    # -------- Regiones (desde asignaciones) --------
     df_regiones = pd.read_sql("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -87,7 +87,7 @@ def render():
         region_seleccionada = st.selectbox("Región", lista_regiones)
 
     # =====================================================
-    # REPORTES → AVANCE REAL (MAPA)
+    # REPORTES → BLOQUES CON AVANCE REAL
     # =====================================================
     where_region = ""
     params = [fecha_ini_map, fecha_fin_map]
@@ -101,7 +101,7 @@ def render():
             r.region,
             a.asignacion,
             a.bloque,
-            p.nombre_completo AS operador
+            p.nombre_completo
         FROM reportes r
         JOIN asignaciones a
             ON a.region = r.region
@@ -113,7 +113,6 @@ def render():
           {where_region}
     """, conn, params=params)
 
-    # Set de claves con avance
     zonas_con_avance = set(
         (row["region"], row["asignacion"], int(row["bloque"]))
         for _, row in df_reportes.iterrows()
@@ -122,7 +121,7 @@ def render():
     operadores_por_zona = {}
     for _, row in df_reportes.iterrows():
         key = (row["region"], row["asignacion"], int(row["bloque"]))
-        operadores_por_zona.setdefault(key, set()).add(row["operador"])
+        operadores_por_zona.setdefault(key, set()).add(row["nombre_completo"])
 
     # =====================================================
     # GEOJSON
@@ -192,26 +191,28 @@ def render():
     params_tabla = []
 
     if region_seleccionada != "Todas":
-        where_region = " WHERE region = %s"
+        where_region = " WHERE a.region = %s"
         params_tabla.append(region_seleccionada)
 
     df_tabla = pd.read_sql(f"""
         SELECT
-            asignacion,
-            bloque,
-            operador_actual AS operador,
-            estado_actual AS estado,
-            region
-        FROM asignaciones
+            a.region,
+            a.asignacion,
+            a.bloque,
+            COALESCE(p.nombre_completo, '—') AS operador,
+            a.estado_actual AS estado
+        FROM asignaciones a
+        LEFT JOIN personal p
+            ON p.cedula = a.operador_actual
         {where_region}
-        ORDER BY region, asignacion, bloque
+        ORDER BY a.region, a.asignacion, a.bloque
     """, conn, params=params_tabla)
 
     if df_tabla.empty:
         st.info("No hay asignaciones registradas.")
     else:
         st.dataframe(
-            df_tabla[["region", "asignacion", "bloque", "operador", "estado"]],
+            df_tabla,
             use_container_width=True,
             hide_index=True
         )
