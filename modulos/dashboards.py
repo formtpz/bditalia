@@ -32,9 +32,7 @@ def render():
     st.subheader("👥 Personal activo")
 
     df_personal = pd.read_sql("""
-        SELECT
-            puesto,
-            COUNT(*) AS cantidad
+        SELECT puesto, COUNT(*) AS cantidad
         FROM personal
         WHERE estado = 'activo'
         GROUP BY puesto
@@ -43,12 +41,8 @@ def render():
 
     total_personal = df_personal["cantidad"].sum()
 
-    df_total = pd.DataFrame(
-        [{"puesto": "TOTAL", "cantidad": total_personal}]
-    )
-
     df_personal_resumen = pd.concat(
-        [df_total, df_personal],
+        [pd.DataFrame([{"puesto": "TOTAL", "cantidad": total_personal}]), df_personal],
         ignore_index=True
     )
 
@@ -69,66 +63,14 @@ def render():
     st.divider()
 
     # =====================================================
-    # B) PRODUCCIÓN POR OPERADOR
-    # =====================================================
-    st.subheader("🏗️ Producción total por operador")
-
-    df_prod = pd.read_sql("""
-        SELECT
-            p.nombre_completo AS operador,
-            SUM(COALESCE(r.produccion::numeric, 0)) AS total_produccion
-        FROM reportes r
-        JOIN personal p ON p.cedula = r.cedula_personal
-        WHERE r.tipo_reporte = 'produccion'
-          AND r.fecha_reporte BETWEEN %s AND %s
-        GROUP BY p.nombre_completo
-        ORDER BY total_produccion DESC
-    """, conn, params=[fecha_inicio, fecha_fin])
-
-    if df_prod.empty:
-        st.info("No hay datos de producción en el rango seleccionado")
-    else:
-        st.bar_chart(df_prod.set_index("operador"))
-        st.dataframe(df_prod, use_container_width=True)
-
-    st.divider()
-
-    # =====================================================
-    # C) EVENTOS POR CATEGORÍA
-    # =====================================================
-    st.subheader("🗂️ Eventos por categoría")
-
-    df_eventos = pd.read_sql("""
-        SELECT
-            te.nombre AS tipo_evento,
-            COUNT(*) AS cantidad
-        FROM reportes r
-        LEFT JOIN tipos_evento te
-            ON te.id = r.tipo_evento_id
-        WHERE r.tipo_reporte = 'evento'
-          AND r.fecha_reporte BETWEEN %s AND %s
-        GROUP BY te.nombre
-        ORDER BY cantidad DESC
-    """, conn, params=[fecha_inicio, fecha_fin])
-
-    if df_eventos.empty:
-        st.info("No hay eventos registrados en el rango seleccionado")
-    else:
-        st.dataframe(df_eventos, use_container_width=True)
-
-    st.divider()
-
-    # =====================================================
     # D) MAPA – AVANCE POR BLOQUES
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
-    # -------- Regiones --------
     df_regiones = pd.read_sql("""
         SELECT DISTINCT region
-        FROM reportes
-        WHERE tipo_reporte = 'produccion'
-          AND region IS NOT NULL
+        FROM asignaciones
+        WHERE region IS NOT NULL
         ORDER BY region
     """, conn)
 
@@ -137,23 +79,16 @@ def render():
     col1, col2, col3 = st.columns(3)
     with col1:
         fecha_ini_map = st.date_input(
-            "Desde (mapa)",
-            value=fecha_inicio,
-            key="map_ini"
+            "Desde (mapa)", value=fecha_inicio, key="map_ini"
         )
     with col2:
         fecha_fin_map = st.date_input(
-            "Hasta (mapa)",
-            value=fecha_fin,
-            key="map_fin"
+            "Hasta (mapa)", value=fecha_fin, key="map_fin"
         )
     with col3:
-        region_seleccionada = st.selectbox(
-            "Región",
-            options=lista_regiones
-        )
+        region_seleccionada = st.selectbox("Región", lista_regiones)
 
-    # -------- Consulta zonas --------
+    # -------- Reportes para el mapa --------
     where_region = ""
     params = [fecha_ini_map, fecha_fin_map]
 
@@ -162,9 +97,7 @@ def render():
         params.append(region_seleccionada)
 
     df_zonas = pd.read_sql(f"""
-        SELECT
-            r.zona,
-            p.nombre_completo AS operador
+        SELECT r.zona, p.nombre_completo AS operador
         FROM reportes r
         JOIN personal p ON p.cedula = r.cedula_personal
         WHERE r.tipo_reporte = 'produccion'
@@ -174,11 +107,8 @@ def render():
     """, conn, params=params)
 
     zona_operadores = {}
-
     for _, row in df_zonas.iterrows():
-        zona = row["zona"].strip()
-        operador = row["operador"]
-        zona_operadores.setdefault(zona, set()).add(operador)
+        zona_operadores.setdefault(row["zona"].strip(), set()).add(row["operador"])
 
     zonas_reportadas = set(zona_operadores.keys())
 
@@ -217,67 +147,46 @@ def render():
         auto_highlight=True,
     )
 
-    view_state = pdk.ViewState(
-        latitude=45.2,
-        longitude=8.44,
-        zoom=6.5
-    )
-
     deck = pdk.Deck(
         layers=[layer],
-        initial_view_state=view_state,
+        initial_view_state=pdk.ViewState(
+            latitude=45.2, longitude=8.44, zoom=6.5
+        ),
         map_style=None,
         views=[pdk.View(type="MapView", controller=True)],
-        tooltip={
-            "html": """
-            <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
-            <b>Asignación:</b> {Asignacion}<br/>
-            <b>Bloque:</b> {BLOQUE}<br/>
-            <b>Región:</b> {region}<br/>
-            <b>Operador:</b> {operador}
-            """,
-            "style": {"backgroundColor": "#333", "color": "white"}
-        }
     )
 
     st.pydeck_chart(deck, use_container_width=True)
 
     # =====================================================
-    # TABLA – DETALLE DE BLOQUES (MISMO FILTRO DEL MAPA)
+    # TABLA – ASIGNACIONES (FUENTE OFICIAL)
     # =====================================================
-    st.subheader("📋 Detalle de avance por bloque")
+    st.subheader("📋 Estado actual por bloque")
 
-    params_tabla = [fecha_ini_map, fecha_fin_map]
     where_region = ""
+    params_tabla = [fecha_ini_map, fecha_fin_map]
 
     if region_seleccionada != "Todas":
-        where_region = " AND r.region = %s"
+        where_region = " AND region = %s"
         params_tabla.append(region_seleccionada)
 
     df_tabla = pd.read_sql(f"""
         SELECT
-            SUBSTRING(r.zona FROM 1 FOR LENGTH(r.zona) - 3) AS asignacion,
-            RIGHT(r.zona, 3) AS bloque,
-            p.nombre_completo AS operador,
-            COUNT(r.id) AS cantidad_reportes
-        FROM reportes r
-        JOIN personal p ON p.cedula = r.cedula_personal
-        WHERE r.tipo_reporte = 'produccion'
-          AND r.fecha_reporte BETWEEN %s AND %s
-          {where_region}
-        GROUP BY asignacion, bloque, p.nombre_completo
-        ORDER BY asignacion, bloque, operador
+            asignacion,
+            LPAD(bloque::text, 3, '0') AS bloque,
+            operador_actual AS operador,
+            estado_actual AS estado
+        FROM asignaciones
+        WHERE fecha_creacion BETWEEN %s AND %s
+        {where_region}
+        ORDER BY region, asignacion, bloque
     """, conn, params=params_tabla)
 
     if df_tabla.empty:
-        st.info("No hay información de bloques para los filtros seleccionados.")
+        st.info("No hay asignaciones para los filtros seleccionados.")
     else:
-        df_tabla["estado"] = df_tabla["cantidad_reportes"].apply(
-            lambda x: "🟦 Avanzado" if x > 0 else "⬜ Sin avance"
-        )
-
         st.dataframe(
-            df_tabla[["asignacion", "bloque", "operador", "estado"]],
+            df_tabla,
             use_container_width=True,
             hide_index=True
         )
