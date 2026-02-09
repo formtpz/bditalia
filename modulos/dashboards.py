@@ -136,8 +136,11 @@ def render():
                 color = [46, 204, 113, 180]   # Verde
             elif estado == "asignado":
                 color = [52, 152, 219, 180]   # Azul
+
+            elif: estado == "asignado":
+                color = [200, 200, 200, 180]
             else:
-                color = [241, 196, 15, 180]   # Amarillo (cualquier otro)
+                color = [241, 196, 15, 180] # Amarillo (cualquier otro)
 
             feature["properties"]["color"] = color
             feature["properties"]["operador"] = operador
