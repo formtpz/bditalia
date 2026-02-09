@@ -6,10 +6,6 @@ from db import get_connection
 from permisos import validar_acceso
 
 
-def normalizar_bloque(bloque):
-    return str(bloque).zfill(3)
-
-
 def render():
     # =========================
     # Control de acceso
@@ -17,13 +13,11 @@ def render():
     validar_acceso("Dashboards")
 
     usuario = st.session_state["usuario"]
-
     if usuario["perfil"] != 1:
         st.error("⛔ Acceso exclusivo para Administrador / Coordinador")
         st.stop()
 
     st.title("📊 Dashboards")
-
     conn = get_connection()
 
     # =====================================================
@@ -42,7 +36,10 @@ def render():
     total_personal = df_personal["cantidad"].sum()
 
     df_personal_resumen = pd.concat(
-        [pd.DataFrame([{"puesto": "TOTAL", "cantidad": total_personal}]), df_personal],
+        [
+            pd.DataFrame([{"puesto": "TOTAL", "cantidad": total_personal}]),
+            df_personal
+        ],
         ignore_index=True
     )
 
@@ -67,6 +64,7 @@ def render():
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
+    # -------- Regiones desde asignaciones (fuente oficial) --------
     df_regiones = pd.read_sql("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -88,7 +86,9 @@ def render():
     with col3:
         region_seleccionada = st.selectbox("Región", lista_regiones)
 
-    # -------- Reportes para el mapa --------
+    # =====================================================
+    # REPORTES → AVANCE REAL (MAPA)
+    # =====================================================
     where_region = ""
     params = [fecha_ini_map, fecha_fin_map]
 
@@ -96,40 +96,54 @@ def render():
         where_region = " AND r.region = %s"
         params.append(region_seleccionada)
 
-    df_zonas = pd.read_sql(f"""
-        SELECT r.zona, p.nombre_completo AS operador
+    df_reportes = pd.read_sql(f"""
+        SELECT
+            r.region,
+            a.asignacion,
+            a.bloque,
+            p.nombre_completo AS operador
         FROM reportes r
+        JOIN asignaciones a
+            ON a.region = r.region
+           AND a.asignacion = SUBSTRING(r.zona FROM 1 FOR LENGTH(r.zona) - 1)
+           AND a.bloque = CAST(SUBSTRING(r.zona FROM LENGTH(r.zona) FOR 1) AS INTEGER)
         JOIN personal p ON p.cedula = r.cedula_personal
         WHERE r.tipo_reporte = 'produccion'
-          AND r.zona IS NOT NULL
           AND r.fecha_reporte BETWEEN %s AND %s
           {where_region}
     """, conn, params=params)
 
-    zona_operadores = {}
-    for _, row in df_zonas.iterrows():
-        zona_operadores.setdefault(row["zona"].strip(), set()).add(row["operador"])
+    # Set de claves con avance
+    zonas_con_avance = set(
+        (row["region"], row["asignacion"], int(row["bloque"]))
+        for _, row in df_reportes.iterrows()
+    )
 
-    zonas_reportadas = set(zona_operadores.keys())
+    operadores_por_zona = {}
+    for _, row in df_reportes.iterrows():
+        key = (row["region"], row["asignacion"], int(row["bloque"]))
+        operadores_por_zona.setdefault(key, set()).add(row["operador"])
 
-    # -------- GeoJSON --------
+    # =====================================================
+    # GEOJSON
+    # =====================================================
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
     for feature in geojson["features"]:
-        asignacion = str(feature["properties"]["Asignacion"]).strip()
-        bloque = normalizar_bloque(feature["properties"]["BLOQUE"])
         region_geo = str(feature["properties"]["region"]).strip()
+        asignacion_geo = str(feature["properties"]["Asignacion"]).strip()
+        bloque_geo = int(feature["properties"]["BLOQUE"])
 
-        zona = f"{asignacion}{bloque}"
+        key = (region_geo, asignacion_geo, bloque_geo)
 
         if (
-            zona in zonas_reportadas and
+            key in zonas_con_avance and
             (region_seleccionada == "Todas" or region_geo == region_seleccionada)
         ):
             feature["properties"]["color"] = [31, 119, 255, 180]
             feature["properties"]["operador"] = ", ".join(
-                sorted(zona_operadores.get(zona, []))
+                sorted(operadores_por_zona.get(key, []))
             )
         else:
             feature["properties"]["color"] = [220, 220, 220, 140]
@@ -150,43 +164,54 @@ def render():
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=pdk.ViewState(
-            latitude=45.2, longitude=8.44, zoom=6.5
+            latitude=45.2,
+            longitude=8.44,
+            zoom=6.5
         ),
         map_style=None,
         views=[pdk.View(type="MapView", controller=True)],
+        tooltip={
+            "html": """
+            <b>Región:</b> {region}<br/>
+            <b>Asignación:</b> {Asignacion}<br/>
+            <b>Bloque:</b> {BLOQUE}<br/>
+            <b>Operador:</b> {operador}
+            """,
+            "style": {"backgroundColor": "#333", "color": "white"}
+        }
     )
 
     st.pydeck_chart(deck, use_container_width=True)
 
     # =====================================================
-    # TABLA – ASIGNACIONES (FUENTE OFICIAL)
+    # TABLA – ESTADO ACTUAL (ASIGNACIONES)
     # =====================================================
     st.subheader("📋 Estado actual por bloque")
 
     where_region = ""
-    params_tabla = [fecha_ini_map, fecha_fin_map]
+    params_tabla = []
 
     if region_seleccionada != "Todas":
-        where_region = " AND region = %s"
+        where_region = " WHERE region = %s"
         params_tabla.append(region_seleccionada)
 
     df_tabla = pd.read_sql(f"""
         SELECT
             asignacion,
-            LPAD(bloque::text, 3, '0') AS bloque,
+            bloque,
             operador_actual AS operador,
-            estado_actual AS estado
+            estado_actual AS estado,
+            region
         FROM asignaciones
-        WHERE fecha_creacion BETWEEN %s AND %s
         {where_region}
         ORDER BY region, asignacion, bloque
     """, conn, params=params_tabla)
 
     if df_tabla.empty:
-        st.info("No hay asignaciones para los filtros seleccionados.")
+        st.info("No hay asignaciones registradas.")
     else:
         st.dataframe(
-            df_tabla,
+            df_tabla[["region", "asignacion", "bloque", "operador", "estado"]],
             use_container_width=True,
             hide_index=True
         )
