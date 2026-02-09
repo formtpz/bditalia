@@ -135,11 +135,12 @@ def render():
             if estado == "finalizado":
                 color = [52, 152, 219, 180]    # azul
             elif estado == "asignado":
-                color = [46, 204, 113, 180]  # verde
+                color = [241, 196, 15, 180]  # verde
 
             elif estado == "pendiente":
                 color = [200, 200, 200, 180]
-
+            elif estado == "proceso":
+                 [46, 204, 113, 180]
             elif estado == "rechazado":
                 color = [220, 220, 220, 180]
             else:
