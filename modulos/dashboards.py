@@ -137,7 +137,7 @@ def render():
             elif estado == "asignado":
                 color = [52, 152, 219, 180]   # Azul
 
-            elif: estado == "pendiente":
+            elif estado == "pendiente":
                 color = [200, 200, 200, 180]
             else:
                 color = [241, 196, 15, 180] # Amarillo (cualquier otro)
