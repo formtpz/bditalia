@@ -53,7 +53,6 @@ def render():
     )
 
     st.dataframe(df_personal_resumen, use_container_width=True)
-
     st.divider()
 
     # =====================================================
@@ -95,7 +94,7 @@ def render():
     st.divider()
 
     # =====================================================
-    # C) CONTEO DE EVENTOS POR CATEGORÍA
+    # C) EVENTOS POR CATEGORÍA
     # =====================================================
     st.subheader("🗂️ Eventos por categoría")
 
@@ -120,11 +119,22 @@ def render():
     st.divider()
 
     # =====================================================
-    # D) MAPA DE AVANCE POR BLOQUES
+    # D) MAPA – AVANCE POR BLOQUES
     # =====================================================
     st.subheader("🗺️ Avance por bloques")
 
-    col1, col2 = st.columns(2)
+    # -------- Regiones --------
+    df_regiones = pd.read_sql("""
+        SELECT DISTINCT region
+        FROM reportes
+        WHERE tipo_reporte = 'produccion'
+          AND region IS NOT NULL
+        ORDER BY region
+    """, conn)
+
+    lista_regiones = ["Todas"] + df_regiones["region"].tolist()
+
+    col1, col2, col3 = st.columns(3)
     with col1:
         fecha_ini_map = st.date_input(
             "Desde (mapa)",
@@ -137,11 +147,21 @@ def render():
             value=fecha_fin,
             key="map_fin"
         )
+    with col3:
+        region_seleccionada = st.selectbox(
+            "Región",
+            options=lista_regiones
+        )
 
-    # -----------------------------------------------------
-    # Zonas reportadas + operadores
-    # -----------------------------------------------------
-    df_zonas = pd.read_sql("""
+    # -------- Consulta zonas --------
+    where_region = ""
+    params = [fecha_ini_map, fecha_fin_map]
+
+    if region_seleccionada != "Todas":
+        where_region = " AND r.region = %s"
+        params.append(region_seleccionada)
+
+    df_zonas = pd.read_sql(f"""
         SELECT
             r.zona,
             p.nombre_completo AS operador
@@ -150,51 +170,41 @@ def render():
         WHERE r.tipo_reporte = 'produccion'
           AND r.zona IS NOT NULL
           AND r.fecha_reporte BETWEEN %s AND %s
-    """, conn, params=[fecha_ini_map, fecha_fin_map])
+          {where_region}
+    """, conn, params=params)
 
     zona_operadores = {}
 
     for _, row in df_zonas.iterrows():
         zona = row["zona"].strip()
         operador = row["operador"]
-
         zona_operadores.setdefault(zona, set()).add(operador)
 
     zonas_reportadas = set(zona_operadores.keys())
 
-    # -----------------------------------------------------
-    # Cargar GeoJSON
-    # -----------------------------------------------------
+    # -------- GeoJSON --------
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
-    # -----------------------------------------------------
-    # Pintar bloques según avance
-    # -----------------------------------------------------
     for feature in geojson["features"]:
         asignacion = str(feature["properties"]["Asignacion"]).strip()
         bloque = normalizar_bloque(feature["properties"]["BLOQUE"])
-        complejidad = str(feature["properties"]["Complejidad"]).strip()
+        region_geo = str(feature["properties"]["region"]).strip()
+
         zona = f"{asignacion}{bloque}"
 
-        if zona in zonas_reportadas:
-            feature["properties"]["color"] = [31, 119, 255, 180]  # Azul
+        if (
+            zona in zonas_reportadas and
+            (region_seleccionada == "Todas" or region_geo == region_seleccionada)
+        ):
+            feature["properties"]["color"] = [31, 119, 255, 180]
             feature["properties"]["operador"] = ", ".join(
                 sorted(zona_operadores.get(zona, []))
             )
         else:
-            feature["properties"]["color"] = [220, 220, 220, 140]  # Gris
+            feature["properties"]["color"] = [220, 220, 220, 140]
             feature["properties"]["operador"] = "—"
 
-    if not zonas_reportadas:
-        st.info(
-            "ℹ️ No existen reportes de producción en el rango seleccionado. "
-            "Se muestran todos los bloques con avance 0%."
-        )
-
-    # -----------------------------------------------------
-    # Capa GeoJSON
-    # -----------------------------------------------------
     layer = pdk.Layer(
         "GeoJsonLayer",
         data=geojson,
@@ -223,14 +233,51 @@ def render():
             <b>Zona:</b> {Asignacion}{BLOQUE}<br/>
             <b>Asignación:</b> {Asignacion}<br/>
             <b>Bloque:</b> {BLOQUE}<br/>
-            <b>Complejidad:</b> {Complejidad}<br/>
+            <b>Región:</b> {region}<br/>
             <b>Operador:</b> {operador}
             """,
-            "style": {
-                "backgroundColor": "#333",
-                "color": "white"
-            }
+            "style": {"backgroundColor": "#333", "color": "white"}
         }
     )
 
     st.pydeck_chart(deck, use_container_width=True)
+
+    # =====================================================
+    # TABLA – DETALLE DE BLOQUES (MISMO FILTRO DEL MAPA)
+    # =====================================================
+    st.subheader("📋 Detalle de avance por bloque")
+
+    params_tabla = [fecha_ini_map, fecha_fin_map]
+    where_region = ""
+
+    if region_seleccionada != "Todas":
+        where_region = " AND r.region = %s"
+        params_tabla.append(region_seleccionada)
+
+    df_tabla = pd.read_sql(f"""
+        SELECT
+            SUBSTRING(r.zona FROM 1 FOR LENGTH(r.zona) - 3) AS asignacion,
+            RIGHT(r.zona, 3) AS bloque,
+            p.nombre_completo AS operador,
+            COUNT(r.id) AS cantidad_reportes
+        FROM reportes r
+        JOIN personal p ON p.cedula = r.cedula_personal
+        WHERE r.tipo_reporte = 'produccion'
+          AND r.fecha_reporte BETWEEN %s AND %s
+          {where_region}
+        GROUP BY asignacion, bloque, p.nombre_completo
+        ORDER BY asignacion, bloque, operador
+    """, conn, params=params_tabla)
+
+    if df_tabla.empty:
+        st.info("No hay información de bloques para los filtros seleccionados.")
+    else:
+        df_tabla["estado"] = df_tabla["cantidad_reportes"].apply(
+            lambda x: "🟦 Avanzado" if x > 0 else "⬜ Sin avance"
+        )
+
+        st.dataframe(
+            df_tabla[["asignacion", "bloque", "operador", "estado"]],
+            use_container_width=True,
+            hide_index=True
+        )
