@@ -47,7 +47,7 @@ def render():
     st.divider()
 
     # =====================================================
-    # FILTRO GLOBAL DE FECHAS
+    # FILTRO GLOBAL DE FECHAS (INFORMATIVO)
     # =====================================================
     st.subheader("📅 Filtro de fechas")
 
@@ -60,11 +60,11 @@ def render():
     st.divider()
 
     # =====================================================
-    # MAPA – AVANCE POR BLOQUES
+    # MAPA – ESTADO POR BLOQUES (ASIGNACIONES)
     # =====================================================
-    st.subheader("🗺️ Avance por bloques")
+    st.subheader("🗺️ Estado por bloques")
 
-    # -------- Regiones (desde asignaciones) --------
+    # -------- Regiones --------
     df_regiones = pd.read_sql("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -76,56 +76,46 @@ def render():
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        fecha_ini_map = st.date_input(
-            "Desde (mapa)", value=fecha_inicio, key="map_ini"
+        st.date_input(
+            "Desde (mapa)", value=fecha_inicio, key="map_ini", disabled=True
         )
     with col2:
-        fecha_fin_map = st.date_input(
-            "Hasta (mapa)", value=fecha_fin, key="map_fin"
+        st.date_input(
+            "Hasta (mapa)", value=fecha_fin, key="map_fin", disabled=True
         )
     with col3:
         region_seleccionada = st.selectbox("Región", lista_regiones)
 
-    # =====================================================
-    # REPORTES → BLOQUES CON AVANCE REAL
-    # =====================================================
+    # -------- Asignaciones --------
     where_region = ""
-    params = [fecha_ini_map, fecha_fin_map]
+    params = []
 
     if region_seleccionada != "Todas":
-        where_region = " AND r.region = %s"
+        where_region = " WHERE a.region = %s"
         params.append(region_seleccionada)
 
-    df_reportes = pd.read_sql(f"""
+    df_asig = pd.read_sql(f"""
         SELECT
-            r.region,
+            a.region,
             a.asignacion,
             a.bloque,
-            p.nombre_completo
-        FROM reportes r
-        JOIN asignaciones a
-            ON a.region = r.region
-           AND a.asignacion = SUBSTRING(r.zona FROM 1 FOR LENGTH(r.zona) - 1)
-           AND a.bloque = CAST(SUBSTRING(r.zona FROM LENGTH(r.zona) FOR 1) AS INTEGER)
-        JOIN personal p ON p.cedula = r.cedula_personal
-        WHERE r.tipo_reporte = 'produccion'
-          AND r.fecha_reporte BETWEEN %s AND %s
-          {where_region}
+            a.estado_actual,
+            COALESCE(p.nombre_completo, '—') AS operador
+        FROM asignaciones a
+        LEFT JOIN personal p
+            ON p.cedula = a.operador_actual
+        {where_region}
     """, conn, params=params)
 
-    zonas_con_avance = set(
-        (row["region"], row["asignacion"], int(row["bloque"]))
-        for _, row in df_reportes.iterrows()
-    )
+    info_por_bloque = {
+        (row["region"], row["asignacion"], int(row["bloque"])): {
+            "estado": row["estado_actual"],
+            "operador": row["operador"]
+        }
+        for _, row in df_asig.iterrows()
+    }
 
-    operadores_por_zona = {}
-    for _, row in df_reportes.iterrows():
-        key = (row["region"], row["asignacion"], int(row["bloque"]))
-        operadores_por_zona.setdefault(key, set()).add(row["nombre_completo"])
-
-    # =====================================================
-    # GEOJSON
-    # =====================================================
+    # -------- GeoJSON --------
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
@@ -136,14 +126,19 @@ def render():
 
         key = (region_geo, asignacion_geo, bloque_geo)
 
-        if (
-            key in zonas_con_avance and
-            (region_seleccionada == "Todas" or region_geo == region_seleccionada)
-        ):
-            feature["properties"]["color"] = [31, 119, 255, 180]
-            feature["properties"]["operador"] = ", ".join(
-                sorted(operadores_por_zona.get(key, []))
-            )
+        if key in info_por_bloque:
+            estado = info_por_bloque[key]["estado"]
+            operador = info_por_bloque[key]["operador"]
+
+            if estado == "terminado":
+                color = [46, 204, 113, 180]   # Verde
+            elif estado == "en_proceso":
+                color = [241, 196, 15, 180]   # Amarillo
+            else:
+                color = [52, 152, 219, 180]   # Azul (pendiente)
+
+            feature["properties"]["color"] = color
+            feature["properties"]["operador"] = operador
         else:
             feature["properties"]["color"] = [220, 220, 220, 140]
             feature["properties"]["operador"] = "—"
@@ -183,36 +178,15 @@ def render():
     st.pydeck_chart(deck, use_container_width=True)
 
     # =====================================================
-    # TABLA – ESTADO ACTUAL (ASIGNACIONES)
+    # TABLA – ESTADO ACTUAL (MISMA FUENTE)
     # =====================================================
     st.subheader("📋 Estado actual por bloque")
 
-    where_region = ""
-    params_tabla = []
-
-    if region_seleccionada != "Todas":
-        where_region = " WHERE a.region = %s"
-        params_tabla.append(region_seleccionada)
-
-    df_tabla = pd.read_sql(f"""
-        SELECT
-            a.region,
-            a.asignacion,
-            a.bloque,
-            COALESCE(p.nombre_completo, '—') AS operador,
-            a.estado_actual AS estado
-        FROM asignaciones a
-        LEFT JOIN personal p
-            ON p.cedula = a.operador_actual
-        {where_region}
-        ORDER BY a.region, a.asignacion, a.bloque
-    """, conn, params=params_tabla)
-
-    if df_tabla.empty:
-        st.info("No hay asignaciones registradas.")
+    if df_asig.empty:
+        st.info("No hay asignaciones para los filtros seleccionados.")
     else:
         st.dataframe(
-            df_tabla,
+            df_asig[["region", "asignacion", "bloque", "operador", "estado_actual"]],
             use_container_width=True,
             hide_index=True
         )
