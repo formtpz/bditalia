@@ -19,31 +19,37 @@ usuario = st.session_state.get("usuario")
 # =========================
 # ESTILOS GLOBALES SEGUROS
 # =========================
-css = """
+st.markdown("""
 <style>
-/* Ocultar menú de los tres puntos */
-#MainMenu {visibility: hidden;}
 
-/* Ocultar footer */
-footer {visibility: hidden;}
+/* 1. Ocultar menú ⋮ */
+#MainMenu {
+    visibility: hidden;
+}
 
-/* Mantener toolbar vivo (NO ocultarlo) */
+/* 2. Ocultar footer */
+footer {
+    visibility: hidden;
+}
+
+/* 3. Ocultar SOLO los iconos (Share, Star, Edit, GitHub) */
+div[data-testid="stToolbarActions"] {
+    display: none !important;
+}
+
+/* 4. Mantener toolbar vivo (NO tocar visibilidad) */
 div[data-testid="stToolbar"] {
     min-height: 2rem;
 }
-"""
 
-# Si NO es admin, ocultar acciones (Share, Star, Edit, GitHub)
-if usuario and usuario.get("perfil") != 1:
-    css += """
-    div[data-testid="stToolbarActions"] {
-        display: none;
-    }
-    """
+/* 5. Opcional: eliminar decoración superior extra */
+div[data-testid="stDecoration"] {
+    display: none;
+}
 
-css += "</style>"
+</style>
+""", unsafe_allow_html=True)
 
-st.markdown(css, unsafe_allow_html=True)
 
 # =========================
 # USUARIO NO LOGUEADO → LOGIN
