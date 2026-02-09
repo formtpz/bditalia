@@ -1,7 +1,25 @@
 import streamlit as st
 from permisos import PERMISOS_POR_PERFIL
 
-hide_streamlit_style = """
+# =========================
+# CONFIGURACIÓN GENERAL (SIEMPRE PRIMERO)
+# =========================
+st.set_page_config(
+    page_title="Sistema de Reportes",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"  # evita quedar atrapado
+)
+
+# =========================
+# USUARIO EN SESIÓN (SI EXISTE)
+# =========================
+usuario = st.session_state.get("usuario")
+
+# =========================
+# ESTILOS GLOBALES SEGUROS
+# =========================
+css = """
 <style>
 /* Ocultar menú de los tres puntos */
 #MainMenu {visibility: hidden;}
@@ -9,21 +27,23 @@ hide_streamlit_style = """
 /* Ocultar footer */
 footer {visibility: hidden;}
 
-/* NO tocar el toolbar ni el header */
-</style>
+/* Mantener toolbar vivo (NO ocultarlo) */
+div[data-testid="stToolbar"] {
+    min-height: 2rem;
+}
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# =========================
-# Configuración general
-# =========================
-st.set_page_config(
-    page_title="Sistema de Reportes",
-    page_icon="📊",
-    layout="wide"
-)
+# Si NO es admin, ocultar acciones (Share, Star, Edit, GitHub)
+if usuario and usuario.get("perfil") != 1:
+    css += """
+    div[data-testid="stToolbarActions"] {
+        display: none;
+    }
+    """
 
-usuario = st.session_state.get("usuario")
+css += "</style>"
+
+st.markdown(css, unsafe_allow_html=True)
 
 # =========================
 # USUARIO NO LOGUEADO → LOGIN
@@ -37,12 +57,10 @@ if not usuario:
 # USUARIO LOGUEADO → MENÚ DINÁMICO
 # =========================
 perfil = usuario["perfil"]
-
 opciones = PERMISOS_POR_PERFIL.get(perfil, [])
 
 with st.sidebar:
     st.image("logo.png", width=1200)
-
     st.markdown("### Menú")
     opcion = st.radio("Seleccione una opción", opciones)
 
@@ -76,7 +94,7 @@ elif opcion == "Eventos":
 elif opcion == "Historial":
     from modulos.historial import render
     render()
-  
+
 elif opcion == "Correcciones":
     from modulos.correcciones import render
     render()
@@ -84,5 +102,4 @@ elif opcion == "Correcciones":
 elif opcion == "Cerrar Sesion":
     from modulos.cerrar_sesion import render
     render()
-
 
