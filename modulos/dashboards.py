@@ -64,7 +64,6 @@ def render():
     # =====================================================
     st.subheader("🗺️ Estado por bloques")
 
-    # -------- Regiones --------
     df_regiones = pd.read_sql("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -76,17 +75,12 @@ def render():
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.date_input(
-            "Desde (mapa)", value=fecha_inicio, key="map_ini", disabled=True
-        )
+        st.date_input("Desde (mapa)", value=fecha_inicio, key="map_ini", disabled=True)
     with col2:
-        st.date_input(
-            "Hasta (mapa)", value=fecha_fin, key="map_fin", disabled=True
-        )
+        st.date_input("Hasta (mapa)", value=fecha_fin, key="map_fin", disabled=True)
     with col3:
         region_seleccionada = st.selectbox("Región", lista_regiones)
 
-    # -------- Asignaciones (fuente única) --------
     where_region = ""
     params = []
 
@@ -100,6 +94,7 @@ def render():
             a.asignacion,
             a.bloque,
             a.estado_actual,
+            a.proceso_actual,
             COALESCE(p.nombre_completo, '—') AS operador
         FROM asignaciones a
         LEFT JOIN personal p
@@ -107,16 +102,16 @@ def render():
         {where_region}
     """, conn, params=params)
 
-    # Diccionario clave → info
     info_por_bloque = {
         (row["region"], row["asignacion"], int(row["bloque"])): {
             "estado": str(row["estado_actual"]).lower().strip(),
+            "estado_raw": row["estado_actual"],
+            "proceso": row["proceso_actual"],
             "operador": row["operador"]
         }
         for _, row in df_asig.iterrows()
     }
 
-    # -------- GeoJSON --------
     with open("italia.geojson", "r", encoding="utf-8") as f:
         geojson = json.load(f)
 
@@ -128,29 +123,31 @@ def render():
         key = (region_geo, asignacion_geo, bloque_geo)
 
         if key in info_por_bloque:
-            estado = info_por_bloque[key]["estado"]
-            operador = info_por_bloque[key]["operador"]
+            info = info_por_bloque[key]
+            estado = info["estado"]
 
-            # 🎨 COLORES DEFINITIVOS
             if estado == "finalizado":
-                color = [52, 152, 219, 180]    # azul
+                color = [52, 152, 219, 180] 
             elif estado == "asignado":
-                color = [241, 196, 15, 180]  # verde
-
+                color = [241, 196, 15, 180]  
             elif estado == "pendiente":
                 color = [200, 200, 200, 180]
             elif estado == "proceso":
-                 [46, 204, 113, 180]
+                color = [46, 204, 113, 180]
             elif estado == "rechazado":
                 color = [220, 220, 220, 180]
             else:
-                color = [241, 196, 15, 180] # Amarillo (cualquier otro)
+                color = [241, 196, 15, 180]
 
             feature["properties"]["color"] = color
-            feature["properties"]["operador"] = operador
+            feature["properties"]["operador"] = info["operador"]
+            feature["properties"]["estado_actual"] = info["estado_raw"]
+            feature["properties"]["proceso_actual"] = info["proceso"]
         else:
             feature["properties"]["color"] = [220, 220, 220, 140]
             feature["properties"]["operador"] = "—"
+            feature["properties"]["estado_actual"] = "—"
+            feature["properties"]["proceso_actual"] = "—"
 
     layer = pdk.Layer(
         "GeoJsonLayer",
@@ -178,7 +175,9 @@ def render():
             <b>Región:</b> {region}<br/>
             <b>Asignación:</b> {Asignacion}<br/>
             <b>Bloque:</b> {BLOQUE}<br/>
-            <b>Operador:</b> {operador}
+            <b>Operador:</b> {operador}<br/>
+            <b>Estado:</b> {estado_actual}<br/>
+            <b>Proceso:</b> {proceso_actual}
             """,
             "style": {"backgroundColor": "#333", "color": "white"}
         }
@@ -187,7 +186,7 @@ def render():
     st.pydeck_chart(deck, use_container_width=True)
 
     # =====================================================
-    # TABLA – ESTADO ACTUAL (MISMA FUENTE)
+    # TABLA – ESTADO ACTUAL
     # =====================================================
     st.subheader("📋 Estado actual por bloque")
 
@@ -195,7 +194,10 @@ def render():
         st.info("No hay asignaciones para los filtros seleccionados.")
     else:
         st.dataframe(
-            df_asig[["region", "asignacion", "bloque", "operador", "estado_actual"]],
+            df_asig[
+                ["region", "asignacion", "bloque",
+                 "operador", "estado_actual", "proceso_actual"]
+            ],
             use_container_width=True,
             hide_index=True
         )
