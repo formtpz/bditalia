@@ -164,8 +164,8 @@ def render():
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=pdk.ViewState(
-            latitude=45.2,
-            longitude=8.44,
+            latitude=44.2,
+            longitude=9.44,
             zoom=6.5
         ),
         map_style=None,
