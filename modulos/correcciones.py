@@ -17,7 +17,7 @@ def render():
     st.title("🛠️ Correcciones de Reportes")
 
     # =====================================================
-    #  3 → SOLICITUD
+    # PERFIL 3 y 4 → SOLICITUD
     # =====================================================
     if perfil == 3 or perfil == 4:
         st.subheader("📋 Registros")
@@ -40,7 +40,8 @@ def render():
                 rechazados,
                 observaciones
             FROM reportes
-            WHERE fecha_reporte BETWEEN %s AND %s AND cedula_personal = %s
+            WHERE fecha_reporte BETWEEN %s AND %s 
+              AND cedula_personal = %s
             ORDER BY fecha_reporte DESC
         """, conn, params=[fecha_inicio, fecha_fin, cedula])
 
@@ -138,13 +139,16 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
-
+    # =====================================================
+    # PERFIL 1 → ADMIN
+    # =====================================================
     elif perfil == 1:
+
         st.subheader("🧾 Correcciones pendientes")
 
-    # =====================================================
-    # TABLA 1: CORRECCIONES PENDIENTES (EDITABLE)
-    # =====================================================
+        # =====================================================
+        # TABLA 1: CORRECCIONES
+        # =====================================================
         df_corr = pd.read_sql("""
             SELECT
                 id,
@@ -197,15 +201,15 @@ def render():
                     WHERE id = %s
                 """, (row["estado"], int(row["id"])))
             conn.commit()
-            st.success("✅ Estados de correcciones actualizados")
+            st.success("✅ Estados actualizados")
             st.rerun()
 
         st.divider()
 
-    # =====================================================
-    # TABLA 2: REPORTES ASOCIADOS (EDITABLE)
-    # =====================================================
-        st.subheader("📊 Reportes asociados a correcciones pendientes")
+        # =====================================================
+        # TABLA 2: REPORTES ASOCIADOS
+        # =====================================================
+        st.subheader("📊 Reportes asociados")
 
         ids_reportes = df_corr["id_asociado"].astype(int).unique().tolist()
 
@@ -245,4 +249,50 @@ def render():
 
             conn.commit()
             st.success("✅ Reportes actualizados correctamente")
+            st.rerun()
+
+        st.divider()
+
+        # =====================================================
+        # ELIMINAR REPORTE MANUALMENTE
+        # =====================================================
+        st.subheader("🗑️ Eliminar reporte manualmente")
+
+        id_eliminar = st.text_input(
+            "Ingrese el ID del reporte a eliminar",
+            key="input_id_eliminar"
+        )
+
+        if id_eliminar:
+            try:
+                df_ver = pd.read_sql("""
+                    SELECT *
+                    FROM reportes
+                    WHERE id = %s
+                """, conn, params=[int(id_eliminar)])
+
+                if df_ver.empty:
+                    st.warning("No existe un reporte con ese ID")
+                else:
+                    st.warning("⚠️ Verifique cuidadosamente antes de eliminar")
+                    st.dataframe(df_ver, use_container_width=True)
+
+                    confirmar = st.checkbox(
+                        "Confirmo que deseo eliminar este reporte permanentemente"
+                    )
+
+                    if confirmar:
+                        if st.button("🚨 Eliminar definitivamente"):
+                            cur = conn.cursor()
+                            cur.execute("""
+                                DELETE FROM reportes
+                                WHERE id = %s
+                            """, (int(id_eliminar),))
+
+                            conn.commit()
+                            st.success("✅ Reporte eliminado correctamente")
+                            st.rerun()
+
+            except:
+                st.error("ID inválido")
 
