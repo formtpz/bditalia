@@ -50,7 +50,6 @@ def render():
     if perfil == 1:
         st.subheader("👑 Asignación Manual por Región")
 
-        # --------- Cargar operadores activos ----------
         df_operadores = pd.read_sql("""
             SELECT cedula, nombre_completo
             FROM personal
@@ -72,7 +71,6 @@ def render():
             df_operadores["nombre_completo"] == operador_sel
         ]["cedula"].iloc[0]
 
-        # --------- Buscar asignaciones 100% pendientes en región ----------
         df_asignaciones = pd.read_sql("""
             SELECT asignacion
             FROM asignaciones
@@ -104,6 +102,7 @@ def render():
                   AND estado_actual = 'pendiente'
             """, (cedula_operador, asignacion_sel, region_sel))
 
+            # HISTORIAL
             cur.execute("""
                 INSERT INTO asignaciones_historial
                 (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
@@ -128,10 +127,8 @@ def render():
     elif perfil == 3:
         st.subheader("👷 Operativo")
 
-        # ---------- AUTOASIGNACIÓN ----------
         if st.button("🧲 Autoasignarme una asignación completa"):
 
-            # Validar si tiene bloques activos
             cur.execute("""
                 SELECT 1
                 FROM asignaciones
@@ -169,11 +166,25 @@ def render():
                           AND estado_actual = 'pendiente'
                     """, (cedula, asignacion_sel, region_sel))
 
+                    # HISTORIAL RESTAURADO
+                    cur.execute("""
+                        INSERT INTO asignaciones_historial
+                        (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
+                        SELECT id, asignacion, bloque, region, %s, %s, 'operativo', 'asignado'
+                        FROM asignaciones
+                        WHERE asignacion = %s
+                          AND region = %s
+                    """, (
+                        cedula,
+                        puesto,
+                        asignacion_sel,
+                        region_sel
+                    ))
+
                     conn.commit()
                     st.session_state.msg_ok = True
                     st.rerun()
 
-        # ---------- TABLA ----------
         df = pd.read_sql("""
             SELECT asignacion, bloque, estado_actual,
                    cantidad_rechazos, cantidad_aprobaciones
@@ -217,6 +228,21 @@ def render():
                     WHERE asignacion = %s
                       AND region = %s
                 """, (cedula, asignacion_sel, region_sel))
+
+                # HISTORIAL RESTAURADO PARA QC
+                cur.execute("""
+                    INSERT INTO asignaciones_historial
+                    (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
+                    SELECT id, asignacion, bloque, region, %s, %s, 'control_calidad', estado_actual
+                    FROM asignaciones
+                    WHERE asignacion = %s
+                      AND region = %s
+                """, (
+                    cedula,
+                    puesto,
+                    asignacion_sel,
+                    region_sel
+                ))
 
                 conn.commit()
                 st.session_state.msg_ok = True
