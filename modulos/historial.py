@@ -109,6 +109,7 @@ def render():
 
     query_eventos = f"""
     SELECT 
+        r.id,
         r.fecha_reporte,
         p.nombre_completo AS persona,
         r.supervisor_nombre AS supervisor,
@@ -125,7 +126,7 @@ def render():
     """
 
     df_eventos = pd.read_sql(query_eventos, conn, params=params_base)
-    st.dataframe(df_eventos, use_container_width=True)
+    st.dataframe(df_eventos, use_container_width=True, hide_index=True)
 
     # =========================
     # RESUMEN DIARIO DE HORAS (POR PERSONA)
