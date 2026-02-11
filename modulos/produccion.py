@@ -1,40 +1,15 @@
 import streamlit as st
-import json
 from datetime import date
 from db import get_connection
 from permisos import validar_acceso
 
 
-# =====================================================
-# Cargar GeoJSON y crear lookup de complejidad
-# =====================================================
-@st.cache_data
-def cargar_complejidad_geojson():
-    with open("italia.geojson", "r", encoding="utf-8") as f:
-        geojson = json.load(f)
-
-    lookup = {}
-
-    for feature in geojson.get("features", []):
-        props = feature.get("properties", {})
-
-        asignacion = props.get("Asignacion")
-        bloque = props.get("BLOQUE")
-        complejidad = props.get("Complejidad")
-
-        if asignacion and bloque:
-            bloque_fmt = str(bloque).zfill(3)
-            key = f"{asignacion}{bloque_fmt}"
-            lookup[key] = complejidad
-
-    return lookup
-
-
 def render():
+
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Reportes Producción")
+    validar_acceso("Produccion")
 
     usuario = st.session_state.get("usuario")
 
@@ -52,7 +27,7 @@ def render():
     cur = conn.cursor()
 
     # =========================
-    # Procesos
+    # Cargar procesos
     # =========================
     cur.execute("""
         SELECT id, nombre
@@ -64,7 +39,7 @@ def render():
     procesos_dict = {nombre: pid for pid, nombre in procesos}
 
     # =========================
-    # Supervisor real
+    # Obtener supervisor real
     # =========================
     cur.execute("""
         SELECT supervisor
@@ -75,12 +50,17 @@ def render():
     supervisor_nombre = row_sup[0] if row_sup else None
 
     # =========================
-    # GeoJSON lookup
+    # Cargar ASIGNACIONES reales
     # =========================
-    lookup_complejidad = cargar_complejidad_geojson()
+    cur.execute("""
+        SELECT DISTINCT asignacion
+        FROM asignaciones
+        ORDER BY asignacion
+    """)
+    lista_asignaciones = [row[0] for row in cur.fetchall()]
 
     # =========================
-    # PROCESO (FUERA DEL FORM)
+    # PROCESO
     # =========================
     proceso_nombre = st.selectbox(
         "Proceso",
@@ -91,31 +71,62 @@ def render():
     es_control_calidad = (proceso_id == 2)
 
     # =========================
-    # ZONA (FUERA DEL FORM)
+    # REGION / ASIGNACION / BLOQUE (MANUAL)
     # =========================
-    asignaciones = [f"C{str(i).zfill(3)}" for i in range(1, 201)]
-    bloques = [str(i).zfill(3) for i in range(1, 202)]
+    col1, col2 = st.columns(2)
 
-    col_z1, col_z2 = st.columns(2)
-    with col_z1:
-        asignacion = st.selectbox("Asignación", asignaciones)
-    with col_z2:
-        bloque = st.selectbox("Bloque", bloques)
+    with col1:
+        asignacion = st.selectbox(
+            "Asignación",
+            lista_asignaciones
+        )
 
-    zona = f"{asignacion}{bloque}"
-    complejidad = lookup_complejidad.get(zona)
+    # Bloques según asignación seleccionada
+    cur.execute("""
+        SELECT bloque
+        FROM asignaciones
+        WHERE asignacion = %s
+        ORDER BY bloque
+    """, (asignacion,))
+
+    lista_bloques = [row[0] for row in cur.fetchall()]
+
+    with col2:
+        bloque = st.selectbox(
+            "Bloque",
+            lista_bloques
+        )
+
+    # Obtener complejidad real desde BD
+    cur.execute("""
+        SELECT complejidad
+        FROM asignaciones
+        WHERE asignacion = %s
+          AND bloque = %s
+        LIMIT 1
+    """, (asignacion, bloque))
+
+    row_comp = cur.fetchone()
+    complejidad = row_comp[0] if row_comp else None
+
+    zona = f"{asignacion}{str(bloque).zfill(3)}"
 
     st.caption(f"📍 Zona: **{zona}**")
+
     if complejidad:
         st.caption(f"🧠 Complejidad detectada: **{complejidad}**")
     else:
-        st.warning("⚠️ Esta zona no tiene complejidad definida en el mapa")
+        st.warning("⚠️ Esta zona no tiene complejidad definida")
 
     # =========================
     # FORMULARIO
     # =========================
     with st.form("form_reporte_produccion"):
-        fecha_reporte = st.date_input("Fecha", value=date.today())
+
+        fecha_reporte = st.date_input(
+            "Fecha",
+            value=date.today()
+        )
 
         horas = st.number_input(
             "Horas laboradas",
@@ -124,7 +135,6 @@ def render():
             step=0.5
         )
 
-        # -------- CONTROL DE CAMPOS --------
         if es_control_calidad:
             aprobados = st.number_input("Aprobados", min_value=0)
             rechazados = st.number_input("Rechazados", min_value=0)
@@ -142,8 +152,9 @@ def render():
     # GUARDAR REPORTE
     # =========================
     if submit:
+
         if not complejidad:
-            st.error("❌ No se puede guardar: la zona no tiene complejidad asignada")
+            st.error("❌ No se puede guardar: la zona no tiene complejidad")
             st.stop()
 
         semana = fecha_reporte.isocalendar()[1]
