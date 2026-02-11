@@ -16,19 +16,19 @@ def render():
     cur = conn.cursor()
 
     # =========================
-    # Mensaje persistente
+    # Mensaje persistente GLOBAL
     # =========================
     if "msg_ok" not in st.session_state:
-        st.session_state.msg_ok = False
+        st.session_state.msg_ok = None
 
     st.title("📍 Módulo de Asignaciones")
 
     if st.session_state.msg_ok:
-        st.success("✅ Cambio guardado correctamente")
-        st.session_state.msg_ok = False
+        st.success(st.session_state.msg_ok)
+        st.session_state.msg_ok = None
 
     # =========================
-    # Cargar regiones disponibles
+    # Cargar regiones
     # =========================
     cur.execute("""
         SELECT DISTINCT region
@@ -92,6 +92,7 @@ def render():
         )
 
         if st.button("📌 Asignar manualmente"):
+
             cur.execute("""
                 UPDATE asignaciones
                 SET operador_actual = %s,
@@ -118,7 +119,7 @@ def render():
             ))
 
             conn.commit()
-            st.success("✅ Asignación realizada correctamente")
+            st.session_state.msg_ok = "✅ Asignación manual realizada correctamente"
             st.rerun()
 
     # =====================================================
@@ -166,7 +167,7 @@ def render():
                           AND estado_actual = 'pendiente'
                     """, (cedula, asignacion_sel, region_sel))
 
-                    # HISTORIAL RESTAURADO
+                    # HISTORIAL
                     cur.execute("""
                         INSERT INTO asignaciones_historial
                         (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
@@ -182,7 +183,7 @@ def render():
                     ))
 
                     conn.commit()
-                    st.session_state.msg_ok = True
+                    st.session_state.msg_ok = "✅ Autoasignación realizada correctamente"
                     st.rerun()
 
         df = pd.read_sql("""
@@ -229,7 +230,7 @@ def render():
                       AND region = %s
                 """, (cedula, asignacion_sel, region_sel))
 
-                # HISTORIAL RESTAURADO PARA QC
+                # HISTORIAL
                 cur.execute("""
                     INSERT INTO asignaciones_historial
                     (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
@@ -245,7 +246,7 @@ def render():
                 ))
 
                 conn.commit()
-                st.session_state.msg_ok = True
+                st.session_state.msg_ok = "✅ Asignación tomada para Control de Calidad"
                 st.rerun()
 
         df = pd.read_sql("""
@@ -263,4 +264,3 @@ def render():
     # =====================================================
     else:
         st.error("⛔ Perfil no autorizado para este módulo")
-
