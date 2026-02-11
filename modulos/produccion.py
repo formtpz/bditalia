@@ -9,7 +9,7 @@ def render():
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Produccion")
+    validar_acceso("Reportes Producción")
 
     usuario = st.session_state.get("usuario")
 
