@@ -176,7 +176,7 @@ def render():
             column_config={
                 "estado": st.column_config.SelectboxColumn(
                     "estado",
-                    options=["pendiente", "corregido"], hide_index=True
+                    options=["pendiente", "corregido"]
                 )
             },
             disabled=[
@@ -189,7 +189,8 @@ def render():
                 "nuevo_valor",
                 "solucion"
             ],
-            key="editor_correcciones"
+            key="editor_correcciones",
+            hide_index=True
         )
 
         if st.button("💾 Guardar cambios de correcciones"):
