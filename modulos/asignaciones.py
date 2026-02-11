@@ -58,8 +58,7 @@ def render():
                 SELECT 1
                 FROM asignaciones
                 WHERE operador_actual = %s
-                  AND estado_actual NOT LIKE 'rechazado%%'
-                  AND estado_actual <> 'finalizado'
+                  AND estado_actual IN ('asignado', 'proceso', 'corregido')
                 LIMIT 1
             """, (cedula,))
 
