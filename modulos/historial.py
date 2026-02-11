@@ -100,7 +100,7 @@ def render():
     """
 
     df_prod = pd.read_sql(query_prod, conn, params=params_base)
-    st.dataframe(df_prod, use_container_width=True)
+    st.dataframe(df_prod, use_container_width=True, hide_index=True)
 
     # =========================
     # REPORTES DE EVENTOS
