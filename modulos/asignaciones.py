@@ -10,7 +10,7 @@ def render():
     usuario = st.session_state["usuario"]
     cedula = usuario["cedula"]
     perfil = usuario["perfil"]
-    puesto = usuario["puesto"]  # solo histórico
+    puesto = usuario["puesto"]
 
     conn = get_connection()
     cur = conn.cursor()
@@ -52,44 +52,60 @@ def render():
 
         # ---------- AUTOASIGNACIÓN ----------
         if st.button("🧲 Autoasignarme una asignación completa"):
+
+            # 🔒 VALIDAR SI YA TIENE ASIGNACIÓN ACTIVA
             cur.execute("""
-                SELECT asignacion
+                SELECT 1
                 FROM asignaciones
-                WHERE estado_actual = 'pendiente'
-                  AND region = %s
-                GROUP BY asignacion
-                ORDER BY asignacion
+                WHERE operador_actual = %s
+                  AND estado_actual NOT LIKE 'rechazado%%'
+                  AND estado_actual <> 'finalizado'
                 LIMIT 1
-            """, (region_sel,))
-            row = cur.fetchone()
+            """, (cedula,))
 
-            if not row:
-                st.info("No hay asignaciones pendientes en esta región")
+            tiene_asignacion_activa = cur.fetchone()
+
+            if tiene_asignacion_activa:
+                st.warning("⚠️ Ya tiene una asignación activa. Debe finalizarla antes de autoasignarse otra.")
             else:
-                asignacion_sel = row[0]
-
                 cur.execute("""
-                    UPDATE asignaciones
-                    SET operador_actual = %s,
-                        proceso_actual = 'operativo',
-                        estado_actual = 'asignado'
-                    WHERE asignacion = %s
-                      AND region = %s
-                      AND estado_actual = 'pendiente'
-                """, (cedula, asignacion_sel, region_sel))
-
-                cur.execute("""
-                    INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
-                    SELECT id, asignacion, bloque, region, %s, %s, 'operativo', 'asignado'
+                    SELECT asignacion
                     FROM asignaciones
-                    WHERE asignacion = %s
+                    WHERE estado_actual = 'pendiente'
                       AND region = %s
-                """, (cedula, puesto, asignacion_sel, region_sel))
+                    GROUP BY asignacion
+                    ORDER BY asignacion
+                    LIMIT 1
+                """, (region_sel,))
+                row = cur.fetchone()
 
-                conn.commit()
-                st.session_state.msg_ok = True
-                st.rerun()
+                if not row:
+                    st.info("No hay asignaciones pendientes en esta región")
+                else:
+                    asignacion_sel = row[0]
+
+                    cur.execute("""
+                        UPDATE asignaciones
+                        SET operador_actual = %s,
+                            proceso_actual = 'operativo',
+                            estado_actual = 'asignado'
+                        WHERE asignacion = %s
+                          AND region = %s
+                          AND estado_actual = 'pendiente'
+                    """, (cedula, asignacion_sel, region_sel))
+
+                    cur.execute("""
+                        INSERT INTO asignaciones_historial
+                        (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
+                        SELECT id, asignacion, bloque, region, %s, %s, 'operativo', 'asignado'
+                        FROM asignaciones
+                        WHERE asignacion = %s
+                          AND region = %s
+                    """, (cedula, puesto, asignacion_sel, region_sel))
+
+                    conn.commit()
+                    st.session_state.msg_ok = True
+                    st.rerun()
 
         # ---------- TABLA SOLO LECTURA ----------
         filtro = st.selectbox(
@@ -179,128 +195,7 @@ def render():
             st.rerun()
 
     # =====================================================
-    # ================= CONTROL DE CALIDAD ================
-    # =====================================================
-    elif perfil == 4:
-        st.subheader("🧪 Control de Calidad")
-
-        # ---------- AUTOASIGNACIÓN QC ----------
-        if st.button("🧲 Autoasignar una asignación para QC"):
-            cur.execute("""
-                SELECT asignacion
-                FROM asignaciones
-                WHERE region = %s
-                GROUP BY asignacion
-                HAVING COUNT(*) = COUNT(
-                    CASE WHEN estado_actual = 'finalizado' THEN 1 END
-                )
-                ORDER BY asignacion
-                LIMIT 1
-            """, (region_sel,))
-            row = cur.fetchone()
-
-            if not row:
-                st.info("No hay asignaciones listas para QC en esta región")
-            else:
-                asignacion_sel = row[0]
-
-                cur.execute("""
-                    UPDATE asignaciones
-                    SET qc_actual = %s,
-                        proceso_actual = 'control_calidad'
-                    WHERE asignacion = %s
-                      AND region = %s
-                """, (cedula, asignacion_sel, region_sel))
-
-                cur.execute("""
-                    INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
-                    SELECT id, asignacion, bloque, region, %s, %s, 'control_calidad', estado_actual
-                    FROM asignaciones
-                    WHERE asignacion = %s
-                      AND region = %s
-                """, (cedula, puesto, asignacion_sel, region_sel))
-
-                conn.commit()
-                st.session_state.msg_ok = True
-                st.rerun()
-
-        # ---------- TABLA SOLO LECTURA ----------
-        df = pd.read_sql("""
-            SELECT asignacion, bloque, estado_actual,
-                   cantidad_rechazos, cantidad_aprobaciones
-            FROM asignaciones
-            WHERE qc_actual = %s
-              AND region = %s
-            ORDER BY asignacion, bloque
-        """, conn, params=(cedula, region_sel))
-
-        st.dataframe(df, use_container_width=True)
-
-        # ---------- SELECCIÓN PUNTUAL ----------
-        opciones = df[df["estado_actual"].isin(["pendiente", "corregido"])].copy()
-        if opciones.empty:
-            return
-
-        opciones["label"] = opciones["asignacion"] + " - Bloque " + opciones["bloque"].astype(str)
-        seleccionado = st.selectbox("Seleccione bloque a revisar", opciones["label"])
-        fila = opciones[opciones["label"] == seleccionado].iloc[0]
-
-        nuevo_estado = st.selectbox("Resultado QC", ["aprobado", "rechazado"])
-        observacion = st.text_area("Observación (solo si rechaza)")
-
-        if st.button("💾 Guardar revisión"):
-            if nuevo_estado == "aprobado":
-                cur.execute("""
-                    UPDATE asignaciones
-                    SET cantidad_aprobaciones = cantidad_aprobaciones + 1,
-                        estado_actual = 'aprobado'
-                    WHERE asignacion = %s
-                      AND bloque = %s
-                      AND region = %s
-                """, (fila["asignacion"], int(fila["bloque"]), region_sel))
-                estado_hist = "aprobado"
-            else:
-                cur.execute("""
-                    UPDATE asignaciones
-                    SET cantidad_rechazos = cantidad_rechazos + 1,
-                        estado_actual = 'rechazado ' || (cantidad_rechazos + 1),
-                        proceso_actual = 'operativo'
-                    WHERE asignacion = %s
-                      AND bloque = %s
-                      AND region = %s
-                """, (fila["asignacion"], int(fila["bloque"]), region_sel))
-
-                cur.execute("""
-                    SELECT estado_actual
-                    FROM asignaciones
-                    WHERE asignacion = %s
-                      AND bloque = %s
-                      AND region = %s
-                """, (fila["asignacion"], int(fila["bloque"]), region_sel))
-
-                estado_hist = cur.fetchone()[0]
-
-            cur.execute("""
-                INSERT INTO asignaciones_historial
-                (asignacion, bloque, region, usuario, puesto, proceso, estado, observacion)
-                VALUES (%s,%s,%s,%s,%s,'control_calidad',%s,%s)
-            """, (
-                fila["asignacion"],
-                int(fila["bloque"]),
-                region_sel,
-                cedula,
-                puesto,
-                estado_hist,
-                observacion
-            ))
-
-            conn.commit()
-            st.session_state.msg_ok = True
-            st.rerun()
-
-    # =====================================================
-    # ================= PERFIL NO VÁLIDO ==================
+    # PERFIL NO VÁLIDO
     # =====================================================
     else:
         st.error("⛔ Perfil no autorizado para este módulo")
