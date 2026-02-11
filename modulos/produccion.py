@@ -9,7 +9,7 @@ def render():
     # =========================
     # Control de acceso
     # =========================
-    validar_acceso("Reportes Producción")
+    validar_acceso("Produccion")
 
     usuario = st.session_state.get("usuario")
 
@@ -50,14 +50,18 @@ def render():
     supervisor_nombre = row_sup[0] if row_sup else None
 
     # =========================
-    # Cargar ASIGNACIONES reales
+    # Cargar REGIONES reales
     # =========================
     cur.execute("""
-        SELECT DISTINCT asignacion
+        SELECT DISTINCT region
         FROM asignaciones
-        ORDER BY asignacion
+        ORDER BY region
     """)
-    lista_asignaciones = [row[0] for row in cur.fetchall()]
+    lista_regiones = [row[0] for row in cur.fetchall()]
+
+    if not lista_regiones:
+        st.error("No existen regiones registradas en la tabla asignaciones")
+        st.stop()
 
     # =========================
     # PROCESO
@@ -71,46 +75,76 @@ def render():
     es_control_calidad = (proceso_id == 2)
 
     # =========================
-    # REGION / ASIGNACION / BLOQUE (MANUAL)
+    # REGION / ASIGNACION / BLOQUE
     # =========================
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
+    # Región
     with col1:
+        region = st.selectbox(
+            "Región",
+            lista_regiones
+        )
+
+    # Asignaciones según región
+    cur.execute("""
+        SELECT DISTINCT asignacion
+        FROM asignaciones
+        WHERE region = %s
+        ORDER BY asignacion
+    """, (region,))
+    lista_asignaciones = [row[0] for row in cur.fetchall()]
+
+    if not lista_asignaciones:
+        st.warning("No hay asignaciones para esta región")
+        st.stop()
+
+    # Asignación
+    with col2:
         asignacion = st.selectbox(
             "Asignación",
             lista_asignaciones
         )
 
-    # Bloques según asignación seleccionada
+    # Bloques según región + asignación
     cur.execute("""
         SELECT bloque
         FROM asignaciones
-        WHERE asignacion = %s
+        WHERE region = %s
+          AND asignacion = %s
         ORDER BY bloque
-    """, (asignacion,))
-
+    """, (region, asignacion))
     lista_bloques = [row[0] for row in cur.fetchall()]
 
-    with col2:
+    if not lista_bloques:
+        st.warning("No hay bloques para esta asignación")
+        st.stop()
+
+    # Bloque
+    with col3:
         bloque = st.selectbox(
             "Bloque",
             lista_bloques
         )
 
-    # Obtener complejidad real desde BD
+    # =========================
+    # Obtener complejidad real
+    # =========================
     cur.execute("""
         SELECT complejidad
         FROM asignaciones
-        WHERE asignacion = %s
+        WHERE region = %s
+          AND asignacion = %s
           AND bloque = %s
         LIMIT 1
-    """, (asignacion, bloque))
+    """, (region, asignacion, bloque))
 
     row_comp = cur.fetchone()
     complejidad = row_comp[0] if row_comp else None
 
     zona = f"{asignacion}{str(bloque).zfill(3)}"
 
+    st.caption(f"📍 Región: **{region}**")
     st.caption(f"📍 Zona: **{zona}**")
 
     if complejidad:
@@ -172,6 +206,7 @@ def render():
                     año,
                     horas,
                     proceso_id,
+                    region,
                     zona,
                     complejidad,
                     produccion,
@@ -185,7 +220,7 @@ def render():
                     'produccion',
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s, %s, %s, %s
                 )
             """, (
                 cedula_usuario,
@@ -196,6 +231,7 @@ def render():
                 año,
                 horas,
                 proceso_id,
+                region,
                 zona,
                 complejidad,
                 produccion,
@@ -213,3 +249,4 @@ def render():
             conn.rollback()
             st.error("❌ Error al guardar el reporte")
             st.exception(e)
+
