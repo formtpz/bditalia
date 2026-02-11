@@ -81,6 +81,7 @@ def render():
 
     query_prod = f"""
     SELECT 
+        r.id,
         r.fecha_reporte,
         p.nombre_completo AS persona,
         r.supervisor_nombre AS supervisor,
