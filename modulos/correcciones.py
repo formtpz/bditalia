@@ -176,7 +176,7 @@ def render():
             column_config={
                 "estado": st.column_config.SelectboxColumn(
                     "estado",
-                    options=["pendiente", "corregido"]
+                    options=["pendiente", "corregido"], hide_index=True
                 )
             },
             disabled=[
@@ -229,7 +229,8 @@ def render():
             use_container_width=True,
             num_rows="fixed",
             disabled=["id"],
-            key="editor_reportes"
+            key="editor_reportes",
+            hide_index=True
         )
 
         if st.button("💾 Guardar cambios en reportes"):
