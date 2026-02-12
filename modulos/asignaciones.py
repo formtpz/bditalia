@@ -15,9 +15,38 @@ def render():
     conn = get_connection()
     cur = conn.cursor()
 
-    # =========================
-    # Mensaje persistente GLOBAL
-    # =========================
+    # =====================================================
+    # PERFIL 4 → SELECCIÓN DE MODO
+    # =====================================================
+    if perfil == 4:
+
+        if "modo_trabajo" not in st.session_state:
+            st.session_state.modo_trabajo = "control_calidad"
+
+        st.subheader("🔀 Seleccione modo de trabajo")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("🧪 Control de Calidad"):
+                st.session_state.modo_trabajo = "control_calidad"
+                st.rerun()
+
+        with col2:
+            if st.button("👷 Operativo"):
+                st.session_state.modo_trabajo = "operativo"
+                st.rerun()
+
+        st.info(f"Modo actual: {st.session_state.modo_trabajo.upper()}")
+
+        perfil_efectivo = 4 if st.session_state.modo_trabajo == "control_calidad" else 3
+
+    else:
+        perfil_efectivo = perfil
+
+    # =====================================================
+    # MENSAJE GLOBAL
+    # =====================================================
     if "msg_ok" not in st.session_state:
         st.session_state.msg_ok = None
 
@@ -27,9 +56,9 @@ def render():
         st.success(st.session_state.msg_ok)
         st.session_state.msg_ok = None
 
-    # =========================
-    # Cargar regiones
-    # =========================
+    # =====================================================
+    # REGIONES
+    # =====================================================
     cur.execute("""
         SELECT DISTINCT region
         FROM asignaciones
@@ -45,9 +74,10 @@ def render():
     region_sel = st.selectbox("🌍 Seleccione región", regiones)
 
     # =====================================================
-    # ======================= PERFIL 1 ====================
+    # PERFIL 1
     # =====================================================
-    if perfil == 1:
+    if perfil_efectivo == 1:
+
         st.subheader("👑 Asignación Manual por Región")
 
         df_operadores = pd.read_sql("""
@@ -117,15 +147,15 @@ def render():
             st.rerun()
 
     # =====================================================
-    # ======================= OPERADOR ====================
+    # PERFIL OPERATIVO (3 o 4 en modo operativo)
     # =====================================================
-    elif perfil == 3:
+    elif perfil_efectivo == 3:
+
         st.subheader("👷 Operativo")
 
-        # ---------- AUTOASIGNACIÓN ----------
+        # ---------------- AUTOASIGNACIÓN ----------------
         if st.button("🧲 Autoasignarme una asignación completa"):
 
-            # Validación paralelismo
             cur.execute("""
                 SELECT 1
                 FROM asignaciones
@@ -176,7 +206,7 @@ def render():
                     st.session_state.msg_ok = "✅ Autoasignación realizada correctamente"
                     st.rerun()
 
-        # ---------- TABLA ----------
+        # ---------------- TABLA ----------------
         df = pd.read_sql("""
             SELECT asignacion, bloque, estado_actual,
                    cantidad_rechazos, cantidad_aprobaciones
@@ -188,7 +218,7 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
-        # ---------- CAMBIO DE ESTADO ----------
+        # ---------------- CAMBIO DE ESTADO ----------------
         opciones = df[df["estado_actual"] != "finalizado"].copy()
 
         if opciones.empty:
@@ -253,12 +283,14 @@ def render():
             st.rerun()
 
     # =====================================================
-    # ================= CONTROL DE CALIDAD ================
+    # PERFIL CONTROL DE CALIDAD
     # =====================================================
-    elif perfil == 4:
+    elif perfil_efectivo == 4:
+
         st.subheader("🧪 Control de Calidad")
 
         if st.button("🧲 Autoasignar para QC"):
+
             cur.execute("""
                 SELECT asignacion
                 FROM asignaciones
@@ -285,15 +317,6 @@ def render():
                       AND region = %s
                 """, (cedula, asignacion_sel, region_sel))
 
-                cur.execute("""
-                    INSERT INTO asignaciones_historial
-                    (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
-                    SELECT id, asignacion, bloque, region, %s, %s, 'control_calidad', estado_actual
-                    FROM asignaciones
-                    WHERE asignacion = %s
-                      AND region = %s
-                """, (cedula, puesto, asignacion_sel, region_sel))
-
                 conn.commit()
                 st.session_state.msg_ok = "✅ Asignación tomada para Control de Calidad"
                 st.rerun()
@@ -309,7 +332,6 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
-        # ---------- REVISIÓN QC ----------
         opciones = df[df["estado_actual"].isin(["pendiente", "corregido"])].copy()
 
         if opciones.empty:
