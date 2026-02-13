@@ -286,29 +286,40 @@ def render():
     # PERFIL CONTROL DE CALIDAD
     # =====================================================
     elif perfil_efectivo == 4:
-
+    
         st.subheader("🧪 Control de Calidad")
-
+    
+        # 🔒 AUTOASIGNACIÓN CON VALIDACIÓN DE HISTORIAL
         if st.button("🧲 Autoasignar para QC"):
-
+    
             cur.execute("""
-                SELECT asignacion
-                FROM asignaciones
-                WHERE region = %s
-                GROUP BY asignacion
+                SELECT a.asignacion
+                FROM asignaciones a
+                WHERE a.region = %s
+                GROUP BY a.asignacion
                 HAVING COUNT(*) = COUNT(
-                    CASE WHEN estado_actual = 'finalizado' THEN 1 END
+                    CASE WHEN a.estado_actual = 'finalizado' THEN 1 END
                 )
-                ORDER BY asignacion
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM asignaciones_historial h
+                    WHERE h.asignacion = a.asignacion
+                      AND h.region = a.region
+                      AND h.usuario = %s
+                      AND h.proceso = 'operativo'
+                      AND h.estado = 'asignado'
+                )
+                ORDER BY a.asignacion
                 LIMIT 1
-            """, (region_sel,))
+            """, (region_sel, cedula))
+    
             row = cur.fetchone()
-
+    
             if not row:
-                st.info("No hay asignaciones listas para QC")
+                st.warning("No hay asignaciones disponibles para QC (o usted fue operador).")
             else:
                 asignacion_sel = row[0]
-
+    
                 cur.execute("""
                     UPDATE asignaciones
                     SET qc_actual = %s,
@@ -316,7 +327,7 @@ def render():
                     WHERE asignacion = %s
                       AND region = %s
                 """, (cedula, asignacion_sel, region_sel))
-
+    
                 conn.commit()
                 st.session_state.msg_ok = "✅ Asignación tomada para Control de Calidad"
                 st.rerun()
