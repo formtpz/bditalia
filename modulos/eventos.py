@@ -17,7 +17,7 @@ def render():
     nombre_usuario = usuario["nombre"]
 
     # Seguridad extra
-    if perfil not in (1, 3, 4):
+    if perfil not in (1, 3, 4, 5):
         st.error("No tiene permiso para acceder a Reportes de Eventos")
         st.stop()
 
@@ -68,7 +68,7 @@ def render():
               AND estado = 'activo'
         """, (cedula_reporta,))
     else:
-        if puesto == "coordinador":
+        if puesto == "coordinador" or puesto == "supervisor":
             cur.execute("""
                 SELECT cedula, nombre_completo, perfil, puesto, supervisor
                 FROM personal
