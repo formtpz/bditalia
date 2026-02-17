@@ -18,7 +18,7 @@ def render():
     # =====================================================
     # PERFIL 4 → SELECCIÓN DE MODO
     # =====================================================
-    if perfil == 4:
+    if perfil == 4 or perfil == 5:
 
         if "modo_trabajo" not in st.session_state:
             st.session_state.modo_trabajo = "control_calidad"
