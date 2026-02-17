@@ -163,7 +163,7 @@ def render():
         )
 
         horas = st.number_input(
-            "Horas laboradas en formato decimal (X min = X/60, ejemplo: para reportar 40 min = 40/60 = 0.67 h, se reportan 0.67 h. Cada día debe sumar 8.5 h)",
+            "Horas laboradas en formato decimal (X min = X/60, ejemplo: para reportar 40 min = 40/60 = 0.67 h, se reportan 0.67 h. Nota: la jornada diaria debe sumar 8.5 h)",
             min_value=0.0,
             max_value=12.5,
             step=0.5
