@@ -42,6 +42,15 @@ PERMISOS_POR_PERFIL = {
         "Correcciones",
         "Cerrar Sesion"
     ]
+
+    5: [
+        "Asignación de Producción",
+        "Reportes Producción",
+        "Eventos",
+        "Historial",
+        "Correcciones",
+        "Cerrar Sesion"
+    ],
 }
 
 
