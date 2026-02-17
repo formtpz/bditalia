@@ -173,10 +173,18 @@ def render():
             aprobados = st.number_input("Aprobados", min_value=0)
             rechazados = st.number_input("Rechazados", min_value=0)
             produccion = 0
+            estados_disponibles = ["pendiente", "aprobado", "rechazado"]
         else:
             produccion = st.number_input("Producción", min_value=0)
             aprobados = 0
             rechazados = 0
+            estados_disponibles = ["pendiente", "finalizado", "corregido"]
+
+        # NUEVO CAMPO ESTADO
+        estado = st.selectbox(
+            "Estado",
+            estados_disponibles
+        )
 
         observaciones = st.text_area("Observaciones")
 
@@ -212,6 +220,7 @@ def render():
                     produccion,
                     aprobados,
                     rechazados,
+                    estado,
                     observaciones,
                     perfil,
                     puesto
@@ -220,7 +229,7 @@ def render():
                     'produccion',
                     %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s
                 )
             """, (
                 cedula_usuario,
@@ -237,6 +246,7 @@ def render():
                 produccion,
                 aprobados,
                 rechazados,
+                estado,
                 observaciones,
                 perfil,
                 puesto
@@ -249,4 +259,5 @@ def render():
             conn.rollback()
             st.error("❌ Error al guardar el reporte")
             st.exception(e)
+
 
