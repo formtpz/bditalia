@@ -17,7 +17,7 @@ def render():
     puesto = usuario["puesto"]
     cedula_usuario = usuario["cedula"]
 
-    if perfil not in (1, 3, 4):
+    if perfil not in (1, 3, 4, 5):
         st.error("No tiene permiso para acceder a Producción")
         st.stop()
 
