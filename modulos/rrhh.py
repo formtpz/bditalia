@@ -102,9 +102,9 @@ def render():
             puesto = st.text_input("Puesto", row["puesto"])
 
             perfil = st.number_input(
-                "Perfil (1=Admin, 2=RRHH, 3=Operario, 4=Operario Calidad)",
+                "Perfil (1=Admin, 2=RRHH, 3=Operario, 4=Operario Calidad, 5=Supervisor)",
                 min_value=1,
-                max_value=4,
+                max_value=5,
                 value=int(row["perfil"])
             )
 
