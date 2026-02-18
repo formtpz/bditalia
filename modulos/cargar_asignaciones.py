@@ -9,6 +9,7 @@ def render():
 
     usuario = st.session_state["usuario"]
     puesto = usuario["puesto"]
+    cedula = usuario["cedula"]
 
     if puesto not in ("Supervisor", "Coordinador", "Streamlit/pruebas"):
         st.error("⛔ Solo Supervisor o Coordinador puede cargar asignaciones")
@@ -51,6 +52,58 @@ def render():
     if not region_sel:
         st.warning("Debe indicar una región")
         return
+
+    # =====================================================
+    # 🔄 DESASIGNAR ASIGNACIÓN COMPLETA (NUEVO BLOQUE)
+    # =====================================================
+    st.divider()
+    st.subheader("🔄 Desasignar asignación completa")
+
+    cur.execute("""
+        SELECT asignacion
+        FROM asignaciones
+        WHERE region = %s
+        GROUP BY asignacion
+        HAVING COUNT(DISTINCT estado_actual) = 1
+           AND MAX(estado_actual) = 'asignado'
+        ORDER BY asignacion
+    """, (region_sel,))
+
+    asignaciones_des = [row[0] for row in cur.fetchall()]
+
+    if not asignaciones_des:
+        st.info("No hay asignaciones completamente en estado 'asignado'")
+    else:
+        asignacion_sel = st.selectbox(
+            "Seleccione asignación a devolver a pendiente",
+            asignaciones_des
+        )
+
+        confirmar = st.checkbox(
+            "Confirmo que deseo desasignar esta asignación completa"
+        )
+
+        if confirmar:
+            if st.button("🚨 Desasignar"):
+
+                try:
+                    cur.execute("""
+                        UPDATE asignaciones
+                        SET operador_actual = NULL,
+                            estado_actual = 'pendiente'
+                        WHERE asignacion = %s
+                          AND region = %s
+                    """, (asignacion_sel, region_sel))
+
+                    conn.commit()
+
+                    st.success("✅ Asignación devuelta a pendiente correctamente")
+                    st.rerun()
+
+                except Exception as e:
+                    conn.rollback()
+                    st.error("❌ Error al desasignar")
+                    st.exception(e)
 
     st.divider()
 
@@ -158,56 +211,3 @@ def render():
         ➕ Insertados: {len(nuevos)}  
         ⏭️ Omitidos (ya existentes): {omitidos}
         """)
-
-st.divider()
-st.subheader("🔄 Desasignar asignación completa")
-
-# ============================
-# BUSCAR ASIGNACIONES CANDIDATAS
-# ============================
-cur.execute("""
-    SELECT asignacion
-    FROM asignaciones
-    WHERE region = %s
-    GROUP BY asignacion
-    HAVING COUNT(DISTINCT estado_actual) = 1
-       AND MAX(estado_actual) = 'asignado'
-    ORDER BY asignacion
-""", (region_sel,))
-
-asignaciones_des = [row[0] for row in cur.fetchall()]
-
-if not asignaciones_des:
-    st.info("No hay asignaciones completamente en estado 'asignado'")
-else:
-    asignacion_sel = st.selectbox(
-        "Seleccione asignación a devolver a pendiente",
-        asignaciones_des
-    )
-
-    confirmar = st.checkbox(
-        "Confirmo que deseo desasignar esta asignación completa"
-    )
-
-    if confirmar:
-        if st.button("🚨 Desasignar"):
-
-            try:
-                # RESET SIN TOCAR proceso_actual
-                cur.execute("""
-                    UPDATE asignaciones
-                    SET operador_actual = NULL,
-                        estado_actual = 'pendiente'
-                    WHERE asignacion = %s
-                      AND region = %s
-                """, (asignacion_sel, region_sel))
-
-                conn.commit()
-
-                st.success("✅ Asignación devuelta a pendiente correctamente")
-
-            except Exception as e:
-                conn.rollback()
-                st.error("❌ Error al desasignar")
-                st.exception(e)
-
