@@ -158,3 +158,56 @@ def render():
         ➕ Insertados: {len(nuevos)}  
         ⏭️ Omitidos (ya existentes): {omitidos}
         """)
+
+st.divider()
+st.subheader("🔄 Desasignar asignación completa")
+
+# ============================
+# BUSCAR ASIGNACIONES CANDIDATAS
+# ============================
+cur.execute("""
+    SELECT asignacion
+    FROM asignaciones
+    WHERE region = %s
+    GROUP BY asignacion
+    HAVING COUNT(DISTINCT estado_actual) = 1
+       AND MAX(estado_actual) = 'asignado'
+    ORDER BY asignacion
+""", (region_sel,))
+
+asignaciones_des = [row[0] for row in cur.fetchall()]
+
+if not asignaciones_des:
+    st.info("No hay asignaciones completamente en estado 'asignado'")
+else:
+    asignacion_sel = st.selectbox(
+        "Seleccione asignación a devolver a pendiente",
+        asignaciones_des
+    )
+
+    confirmar = st.checkbox(
+        "Confirmo que deseo desasignar esta asignación completa"
+    )
+
+    if confirmar:
+        if st.button("🚨 Desasignar"):
+
+            try:
+                # RESET SIN TOCAR proceso_actual
+                cur.execute("""
+                    UPDATE asignaciones
+                    SET operador_actual = NULL,
+                        estado_actual = 'pendiente'
+                    WHERE asignacion = %s
+                      AND region = %s
+                """, (asignacion_sel, region_sel))
+
+                conn.commit()
+
+                st.success("✅ Asignación devuelta a pendiente correctamente")
+
+            except Exception as e:
+                conn.rollback()
+                st.error("❌ Error al desasignar")
+                st.exception(e)
+
