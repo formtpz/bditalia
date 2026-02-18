@@ -75,7 +75,7 @@ def render():
         st.info("No hay asignaciones completamente en estado 'asignado'")
     else:
         asignacion_sel = st.selectbox(
-            "Seleccione asignación a devolver a pendiente",
+            "Seleccione asignación a devolver a pendiente según la Región preseleccionada",
             asignaciones_des
         )
 
