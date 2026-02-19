@@ -324,11 +324,12 @@ def render():
                 cur.execute("""
                     UPDATE asignaciones
                     SET qc_actual = %s,
-                        proceso_actual = 'control_calidad'
+                        proceso_actual = 'control_calidad',
                         estado_actual = 'pendiente'
                     WHERE asignacion = %s
                         AND region = %s
                         AND estado_actual = 'finalizado'
+                        AND qc_actual IS NULL
                 """, (cedula, asignacion_sel, region_sel))
 
                 #Almacenamiento en historial
