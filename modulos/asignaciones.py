@@ -296,7 +296,7 @@ def render():
                 SELECT a.asignacion
                 FROM asignaciones a
                 WHERE a.region = %s
-                GROUP BY a.asignacion
+                GROUP BY a.asignacion, a.region
                 HAVING COUNT(*) = COUNT(
                     CASE WHEN a.estado_actual = 'finalizado' THEN 1 END
                 )
