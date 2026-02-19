@@ -392,16 +392,20 @@ def render():
 
             cur.execute("""
                 INSERT INTO asignaciones_historial
-                (asignacion, bloque, region, usuario, puesto, proceso, estado, observacion)
-                VALUES (%s,%s,%s,%s,%s,'control_calidad',%s,%s)
+                (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado, observacion)
+                SELECT id, asignacion, bloque, region, %s, %s, 'control_calidad', %s, %s
+                FROM asignaciones
+                WHERE asignacion = %s
+                    AND bloque = %s
+                    AND region = %s
             """, (
-                fila["asignacion"],
-                int(fila["bloque"]),
-                region_sel,
                 cedula,
                 puesto,
                 estado_hist,
-                observacion
+                observacion,
+                fila["asignacion"],
+                int(fila["bloque"]),
+                region_sel
             ))
 
             conn.commit()
