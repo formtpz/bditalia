@@ -290,7 +290,7 @@ def render():
     
         st.subheader("🧪 Control de Calidad")
     
-        # 🔒 AUTOASIGNACIÓN CON VALIDACIÓN DE HISTORIAL
+        # 🔒 AUTOASIGNACIÓN CON VALIDACIÓN DE HISTORIAL--------------------------------------------------------------------------
         if st.button("🧲 Autoasignar para QC"):
     
             cur.execute("""
@@ -321,13 +321,31 @@ def render():
             else:
                 asignacion_sel = row[0]
     
+                #Almacenando en asignaciones la asignacion de QC y el estado pasa de finalizado a proceso
                 cur.execute("""
                     UPDATE asignaciones
                     SET qc_actual = %s,
                         proceso_actual = 'control_calidad'
+                        estado_actual = 'pendiente'
                     WHERE asignacion = %s
                       AND region = %s
+                      AND estado_actual = 'finalizado'
                 """, (cedula, asignacion_sel, region_sel))
+
+                #Almacenamiento en historial
+                cur.execute("""
+                INSERT INTO asignaciones_historial
+                (asignacion_id, asignacion, bloque, region, usuario, puesto, proceso, estado)
+                SELECT id, asignacion, bloque, region, %s, %s, 'control_calidad', 'asignado'
+                FROM asignaciones
+                WHERE asignacion = %s
+                AND region = %s
+                """, (
+                    cedula,
+                    puesto,
+                    asignacion_sel,
+                    region_sel
+                ))
     
                 conn.commit()
                 st.session_state.msg_ok = "✅ Asignación tomada para Control de Calidad"
