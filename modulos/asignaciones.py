@@ -250,12 +250,11 @@ def render():
             if nuevo_estado == "corregido":
                 cur.execute("""
                     UPDATE asignaciones
-                    SET qc_actual = %s,
-                        proceso_actual = 'control_calidad',
-                        estado_actual = 'pendiente'
+                    SET estado_actual = 'corregido',
+                        proceso_actual = 'control_calidad'
                     WHERE asignacion = %s
-                        AND region = %s
-                        AND estado_actual = 'finalizado'
+                      AND bloque = %s
+                      AND region = %s
                 """, (fila["asignacion"], int(fila["bloque"]), region_sel))
             else:
                 cur.execute("""
