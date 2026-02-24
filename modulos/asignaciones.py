@@ -332,7 +332,7 @@ def render():
                     UPDATE asignaciones
                     SET qc_actual = %s,
                         proceso_actual = 'control_calidad',
-                        estado_actual = 'pendiente'
+                        estado_actual = 'pendienteqc'
                     WHERE asignacion = %s
                         AND region = %s
                         AND estado_actual = 'finalizado'
@@ -369,7 +369,7 @@ def render():
 
         st.dataframe(df, use_container_width=True)
 
-        opciones = df[df["estado_actual"].isin(["pendiente", "corregido"])].copy()
+        opciones = df[df["estado_actual"].isin(["pendienteqc", "corregido"])].copy()
 
         if opciones.empty:
             return
