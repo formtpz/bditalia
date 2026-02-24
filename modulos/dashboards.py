@@ -134,7 +134,7 @@ def render():
                 color = [200, 200, 200, 180]
             elif estado == "proceso":
                 color = [46, 204, 113, 180]
-            elif estado == "rechazado":
+            elif estado.startswith("rechazado"):
                 color = [255, 0, 0, 180]
             else:
                 color = [241, 196, 15, 180]
