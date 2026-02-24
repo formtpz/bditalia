@@ -126,7 +126,7 @@ def render():
             info = info_por_bloque[key]
             estado = info["estado"]
 
-            if estado == "finalizado":
+            if estado == "finalizado" or estado == "aprobado":
                 color = [52, 152, 219, 180] 
             elif estado == "asignado":
                 color = [241, 196, 15, 180]  
