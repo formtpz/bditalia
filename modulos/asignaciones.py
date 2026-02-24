@@ -161,25 +161,32 @@ def render():
                 FROM asignaciones
                 WHERE operador_actual = %s
                   AND estado_actual IN ('asignado', 'proceso', 'corregido')
+                  AND proceso_actual = 'operativo'
                 LIMIT 1
             """, (cedula,))
 
             if cur.fetchone():
-                st.warning("⚠️ Ya tiene una asignación en proceso.")
+                st.warning("⚠️ Ya tiene una asignación activa. Debe finalizar todos sus bloques antes de autoasignarse otra.")
             else:
                 cur.execute("""
                     SELECT asignacion
                     FROM asignaciones
-                    WHERE estado_actual = 'pendiente'
-                      AND region = %s
+                    WHERE region = %s
                     GROUP BY asignacion
+                    HAVING COUNT(*) = COUNT(
+                        CASE
+                            WHEN estado_actual = 'pendiente'
+                             AND proceso_actual = 'operativo'
+                            THEN 1
+                        END
+                    )
                     ORDER BY asignacion
                     LIMIT 1
                 """, (region_sel,))
                 row = cur.fetchone()
 
                 if not row:
-                    st.info("No hay asignaciones pendientes")
+                    st.info("No hay asignaciones elegibles para autoasignación en esta región")
                 else:
                     asignacion_sel = row[0]
 
