@@ -13,8 +13,8 @@ def render():
     validar_acceso("Dashboards")
 
     usuario = st.session_state["usuario"]
-    if usuario["perfil"] != 1:
-        st.error("⛔ Acceso exclusivo para Administrador / Coordinador")
+    if usuario["perfil"] != 1 or usuario["perfil"] != 5:
+        st.error("⛔ Acceso exclusivo para Administrador / Coordinador / Supervisor")
         st.stop()
 
     st.title("📊 Dashboards")
