@@ -45,6 +45,7 @@ PERMISOS_POR_PERFIL = {
 
     5: [
         "Asignación de Producción",
+        "Dashboards",
         "Reportes Producción",
         "Eventos",
         "Historial",
