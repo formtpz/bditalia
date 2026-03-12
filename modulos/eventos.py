@@ -80,9 +80,9 @@ def render():
                 SELECT cedula, nombre_completo, perfil, puesto, supervisor
                 FROM personal
                 WHERE estado = 'activo'
-                  AND supervisor = %s
+                  AND (supervisor = %s OR cedula = %s)
                 ORDER BY nombre_completo
-            """, (nombre_usuario,))
+            """, (nombre_usuario, cedula_reporta))
 
     personal = cur.fetchall()
 
