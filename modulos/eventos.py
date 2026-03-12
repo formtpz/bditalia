@@ -68,7 +68,7 @@ def render():
               AND estado = 'activo'
         """, (cedula_reporta,))
     else:
-        if puesto == "coordinador" or puesto == "supervisor":
+        if puesto == "coordinador" or puesto == "supervisor" or puesto == "Tecnico SIG":
             cur.execute("""
                 SELECT cedula, nombre_completo, perfil, puesto, supervisor
                 FROM personal
