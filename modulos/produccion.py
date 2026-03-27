@@ -73,6 +73,7 @@ def render():
     proceso_id = procesos_dict[proceso_nombre]
 
     es_control_calidad = (proceso_id == 2)
+    es_omisiones = (proceso_id == 3)
 
     # =========================
     # REGION / ASIGNACION / BLOQUE
@@ -86,63 +87,78 @@ def render():
             lista_regiones
         )
 
-    # Asignaciones según región
-    cur.execute("""
-        SELECT DISTINCT asignacion
-        FROM asignaciones
-        WHERE region = %s
-        ORDER BY asignacion
-    """, (region,))
-    lista_asignaciones = [row[0] for row in cur.fetchall()]
+    
+    if es_omisiones:
+    asignacion = None
+    bloque = None
+    zona = None
 
-    if not lista_asignaciones:
-        st.warning("No hay asignaciones para esta región")
-        st.stop()
-
-    # Asignación
     with col2:
-        asignacion = st.selectbox(
-            "Asignación",
-            lista_asignaciones
-        )
+        st.text_input("Asignación", value="No aplica", disabled=True)
 
-    # Bloques según región + asignación
-    cur.execute("""
-        SELECT bloque
-        FROM asignaciones
-        WHERE region = %s
-          AND asignacion = %s
-        ORDER BY bloque
-    """, (region, asignacion))
-    lista_bloques = [row[0] for row in cur.fetchall()]
-
-    if not lista_bloques:
-        st.warning("No hay bloques para esta asignación")
-        st.stop()
-
-    # Bloque
     with col3:
-        bloque = st.selectbox(
-            "Bloque",
-            lista_bloques
-        )
+        st.text_input("Bloque", value="No aplica", disabled=True)
 
-    # =========================
-    # Obtener complejidad real
-    # =========================
-    cur.execute("""
-        SELECT complejidad
-        FROM asignaciones
-        WHERE region = %s
-          AND asignacion = %s
-          AND bloque = %s
-        LIMIT 1
-    """, (region, asignacion, bloque))
+    complejidad = None
 
-    row_comp = cur.fetchone()
-    complejidad = row_comp[0] if row_comp else None
-
-    zona = f"{asignacion}{str(bloque).zfill(3)}"
+    else :
+        # Asignaciones según región
+        cur.execute("""
+            SELECT DISTINCT asignacion
+            FROM asignaciones
+            WHERE region = %s
+            ORDER BY asignacion
+        """, (region,))
+        lista_asignaciones = [row[0] for row in cur.fetchall()]
+    
+        if not lista_asignaciones:
+            st.warning("No hay asignaciones para esta región")
+            st.stop()
+    
+        # Asignación
+        with col2:
+            asignacion = st.selectbox(
+                "Asignación",
+                lista_asignaciones
+            )
+    
+        # Bloques según región + asignación
+        cur.execute("""
+            SELECT bloque
+            FROM asignaciones
+            WHERE region = %s
+              AND asignacion = %s
+            ORDER BY bloque
+        """, (region, asignacion))
+        lista_bloques = [row[0] for row in cur.fetchall()]
+    
+        if not lista_bloques:
+            st.warning("No hay bloques para esta asignación")
+            st.stop()
+    
+        # Bloque
+        with col3:
+            bloque = st.selectbox(
+                "Bloque",
+                lista_bloques
+            )
+    
+        # =========================
+        # Obtener complejidad real
+        # =========================
+        cur.execute("""
+            SELECT complejidad
+            FROM asignaciones
+            WHERE region = %s
+              AND asignacion = %s
+              AND bloque = %s
+            LIMIT 1
+        """, (region, asignacion, bloque))
+    
+        row_comp = cur.fetchone()
+        complejidad = row_comp[0] if row_comp else None
+    
+        zona = f"{asignacion}{str(bloque).zfill(3)}"
 
     st.caption(f"📍 Región: **{region}**")
     st.caption(f"📍 Zona: **{zona}**")
@@ -195,7 +211,7 @@ def render():
     # =========================
     if submit:
 
-        if not complejidad:
+        if not es_omisiones and not complejidad:
             st.error("❌ No se puede guardar: la zona no tiene complejidad")
             st.stop()
 
