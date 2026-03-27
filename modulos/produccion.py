@@ -93,13 +93,13 @@ def render():
         bloque = None
         zona = None
 
-    with col2:
-        st.text_input("Asignación", value="No aplica", disabled=True)
-
-    with col3:
-        st.text_input("Bloque", value="No aplica", disabled=True)
-
-    complejidad = None
+        with col2:
+            st.text_input("Asignación", value="No aplica", disabled=True)
+    
+        with col3:
+            st.text_input("Bloque", value="No aplica", disabled=True)
+    
+        complejidad = None
 
     else :
         # Asignaciones según región
