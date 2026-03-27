@@ -191,6 +191,7 @@ def render():
             produccion = 0
             estados_disponibles = ["pendiente", "aprobado", "rechazado"]
         elif es_omisiones:
+            produccion = st.number_input("Producción", min_value=0)
             estados_disponibles = ["finalizado", "pendiente"]
         else:
             produccion = st.number_input("Producción", min_value=0)
