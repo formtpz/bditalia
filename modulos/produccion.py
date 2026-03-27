@@ -190,6 +190,8 @@ def render():
             rechazados = st.number_input("Rechazados", min_value=0)
             produccion = 0
             estados_disponibles = ["pendiente", "aprobado", "rechazado"]
+        elif es_omisiones:
+            estados_disponibles = ["finalizado", "pendiente"]
         else:
             produccion = st.number_input("Producción", min_value=0)
             aprobados = 0
