@@ -89,9 +89,9 @@ def render():
 
     
     if es_omisiones:
-    asignacion = None
-    bloque = None
-    zona = None
+        asignacion = None
+        bloque = None
+        zona = None
 
     with col2:
         st.text_input("Asignación", value="No aplica", disabled=True)
