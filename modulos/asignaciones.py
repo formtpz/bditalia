@@ -152,7 +152,7 @@ def render():
     elif perfil_efectivo == 3:
         st.subheader("👷 Operativo - Panel de trabajo")
     
-        # --- Autoasignación (sin cambios) ---
+        # --- 1. Autoasignación (sin cambios) ---
         if st.button("🧲 Autoasignarme una asignación completa"):
             cur.execute("""
                 SELECT 1
@@ -203,7 +203,7 @@ def render():
                     st.session_state.msg_ok = "✅ Autoasignación realizada correctamente"
                     st.rerun()
     
-        # --- Mostrar todas las asignaciones del operador ---
+        # --- 2. Mostrar tabla de bloques del operador ---
         df_asignaciones = pd.read_sql("""
             SELECT DISTINCT asignacion
             FROM asignaciones
@@ -215,16 +215,16 @@ def render():
             st.info("No tienes ninguna asignación activa en esta región.")
             return
     
-        # Selector de asignación para trabajo masivo
-        asignacion_masiva = st.selectbox("📦 Seleccione la asignación para actualización masiva", df_asignaciones["asignacion"])
+        # Selector de asignación (se usará tanto para individual como para masiva)
+        asignacion_sel = st.selectbox("📦 Seleccione la asignación a trabajar", df_asignaciones["asignacion"])
     
-        # Obtener bloques de esa asignación (incluyendo 'asignacion')
+        # Obtener bloques de esa asignación (incluyendo la columna 'asignacion')
         df_bloques = pd.read_sql("""
             SELECT asignacion, bloque, estado_actual, cantidad_rechazos, cantidad_aprobaciones
             FROM asignaciones
             WHERE operador_actual = %s AND region = %s AND asignacion = %s
             ORDER BY bloque
-        """, conn, params=(cedula, region_sel, asignacion_masiva))
+        """, conn, params=(cedula, region_sel, asignacion_sel))
     
         if df_bloques.empty:
             st.warning("No hay bloques para esta asignación")
@@ -233,70 +233,12 @@ def render():
         st.write("### Bloques actuales")
         st.dataframe(df_bloques[["bloque", "estado_actual"]], use_container_width=True)
     
-        # --- Selección múltiple de bloques con el MISMO estado actual ---
-        estados_disponibles = df_bloques["estado_actual"].unique()
-        if len(estados_disponibles) == 0:
-            st.info("No hay bloques para procesar")
-            return
-    
-        estado_filtro = st.selectbox("🔍 Filtrar bloques por estado actual", estados_disponibles)
-        bloques_filtrados = df_bloques[df_bloques["estado_actual"] == estado_filtro]
-        if bloques_filtrados.empty:
-            st.info(f"No hay bloques con estado '{estado_filtro}'")
-            return
-    
-        seleccion = {}
-        st.write(f"**Bloques en estado '{estado_filtro}':**")
-        for _, row in bloques_filtrados.iterrows():
-            seleccion[row["bloque"]] = st.checkbox(f"Bloque {row['bloque']} - Estado actual: {row['estado_actual']}", key=f"masivo_{row['bloque']}")
-    
-        bloques_seleccionados = [bloque for bloque, selec in seleccion.items() if selec]
-        if not bloques_seleccionados:
-            st.info("Seleccione al menos un bloque para actualizar")
-        else:
-            estado_comun = estado_filtro
-            if estado_comun.startswith("rechazado"):
-                opciones_estado = ["corregido"]
-            elif estado_comun == "asignado":
-                opciones_estado = ["proceso"]
-            elif estado_comun == "proceso":
-                opciones_estado = ["finalizado"]
-            else:
-                opciones_estado = []
-    
-            if not opciones_estado:
-                st.info(f"El estado '{estado_comun}' no permite transiciones masivas")
-            else:
-                nuevo_estado_masivo = st.selectbox("🚀 Nuevo estado para los bloques seleccionados", opciones_estado)
-                if st.button("💾 Aplicar cambio masivo"):
-                    for bloque in bloques_seleccionados:
-                        if nuevo_estado_masivo == "corregido":
-                            cur.execute("""
-                                UPDATE asignaciones
-                                SET estado_actual = 'corregido',
-                                    proceso_actual = 'control_calidad'
-                                WHERE asignacion = %s AND bloque = %s AND region = %s
-                            """, (asignacion_masiva, int(bloque), region_sel))
-                        else:
-                            cur.execute("""
-                                UPDATE asignaciones
-                                SET estado_actual = %s
-                                WHERE asignacion = %s AND bloque = %s AND region = %s
-                            """, (nuevo_estado_masivo, asignacion_masiva, int(bloque), region_sel))
-    
-                        cur.execute("""
-                            INSERT INTO asignaciones_historial
-                            (asignacion, bloque, region, usuario, puesto, proceso, estado)
-                            VALUES (%s, %s, %s, %s, %s, 'operativo', %s)
-                        """, (asignacion_masiva, int(bloque), region_sel, cedula, puesto, nuevo_estado_masivo))
-    
-                    conn.commit()
-                    st.session_state.msg_ok = f"✅ {len(bloques_seleccionados)} bloque(s) actualizado(s) a '{nuevo_estado_masivo}'"
-                    st.rerun()
-    
-        # --- Modificación individual (opcional) ---
+        # =====================================================
+        # 3. MODIFICACIÓN INDIVIDUAL (opcional)
+        # =====================================================
         st.divider()
-        st.write("### Modificación individual (opcional)")
+        st.write("### ✏️ Modificación individual (un solo bloque)")
+    
         # Filtrar bloques con estados que permiten transición
         opciones_individuales = df_bloques[df_bloques["estado_actual"].isin(["asignado", "proceso", "rechazado", "corregido"])].copy()
         if not opciones_individuales.empty:
@@ -304,6 +246,8 @@ def render():
             seleccionado = st.selectbox("Seleccione un bloque para cambiar individualmente", opciones_individuales["label"])
             fila = opciones_individuales[opciones_individuales["label"] == seleccionado].iloc[0]
             estado_actual = fila["estado_actual"]
+    
+            # Determinar nuevo estado según lógica de negocio
             if estado_actual.startswith("rechazado"):
                 opciones_estado = ["corregido"]
             elif estado_actual == "asignado":
@@ -312,6 +256,7 @@ def render():
                 opciones_estado = ["finalizado"]
             else:
                 opciones_estado = []
+    
             if opciones_estado:
                 nuevo_estado = st.selectbox("Nuevo estado (individual)", opciones_estado, key="individual")
                 if st.button("💾 Guardar cambio individual"):
@@ -328,14 +273,85 @@ def render():
                             SET estado_actual = %s
                             WHERE asignacion = %s AND bloque = %s AND region = %s
                         """, (nuevo_estado, fila["asignacion"], int(fila["bloque"]), region_sel))
+    
                     cur.execute("""
                         INSERT INTO asignaciones_historial
                         (asignacion, bloque, region, usuario, puesto, proceso, estado)
                         VALUES (%s, %s, %s, %s, %s, 'operativo', %s)
                     """, (fila["asignacion"], int(fila["bloque"]), region_sel, cedula, puesto, nuevo_estado))
+    
                     conn.commit()
                     st.session_state.msg_ok = "✅ Estado actualizado correctamente"
                     st.rerun()
+            else:
+                st.info("Este bloque no puede ser modificado individualmente (estado no permite transición).")
+        else:
+            st.info("No hay bloques modificables individualmente en esta asignación.")
+    
+        # =====================================================
+        # 4. MODIFICACIÓN MASIVA (varios bloques con el mismo estado)
+        # =====================================================
+        st.divider()
+        st.write("### 🚀 Modificación masiva (varios bloques a la vez)")
+    
+        estados_disponibles = df_bloques["estado_actual"].unique()
+        if len(estados_disponibles) == 0:
+            st.info("No hay bloques para procesar masivamente")
+        else:
+            estado_filtro = st.selectbox("🔍 Filtrar bloques por estado actual (masivo)", estados_disponibles)
+            bloques_filtrados = df_bloques[df_bloques["estado_actual"] == estado_filtro]
+            if bloques_filtrados.empty:
+                st.info(f"No hay bloques con estado '{estado_filtro}'")
+            else:
+                # Checkboxes para seleccionar múltiples bloques
+                seleccion = {}
+                st.write(f"**Bloques en estado '{estado_filtro}':**")
+                for _, row in bloques_filtrados.iterrows():
+                    seleccion[row["bloque"]] = st.checkbox(f"Bloque {row['bloque']} - Estado actual: {row['estado_actual']}", key=f"masivo_{row['bloque']}")
+    
+                bloques_seleccionados = [bloque for bloque, selec in seleccion.items() if selec]
+                if not bloques_seleccionados:
+                    st.info("Seleccione al menos un bloque para actualizar")
+                else:
+                    estado_comun = estado_filtro
+                    if estado_comun.startswith("rechazado"):
+                        opciones_estado_masivo = ["corregido"]
+                    elif estado_comun == "asignado":
+                        opciones_estado_masivo = ["proceso"]
+                    elif estado_comun == "proceso":
+                        opciones_estado_masivo = ["finalizado"]
+                    else:
+                        opciones_estado_masivo = []
+    
+                    if not opciones_estado_masivo:
+                        st.info(f"El estado '{estado_comun}' no permite transiciones masivas")
+                    else:
+                        nuevo_estado_masivo = st.selectbox("🚀 Nuevo estado para los bloques seleccionados", opciones_estado_masivo)
+                        if st.button("💾 Aplicar cambio masivo"):
+                            for bloque in bloques_seleccionados:
+                                if nuevo_estado_masivo == "corregido":
+                                    cur.execute("""
+                                        UPDATE asignaciones
+                                        SET estado_actual = 'corregido',
+                                            proceso_actual = 'control_calidad'
+                                        WHERE asignacion = %s AND bloque = %s AND region = %s
+                                    """, (asignacion_sel, int(bloque), region_sel))
+                                else:
+                                    cur.execute("""
+                                        UPDATE asignaciones
+                                        SET estado_actual = %s
+                                        WHERE asignacion = %s AND bloque = %s AND region = %s
+                                    """, (nuevo_estado_masivo, asignacion_sel, int(bloque), region_sel))
+    
+                                cur.execute("""
+                                    INSERT INTO asignaciones_historial
+                                    (asignacion, bloque, region, usuario, puesto, proceso, estado)
+                                    VALUES (%s, %s, %s, %s, %s, 'operativo', %s)
+                                """, (asignacion_sel, int(bloque), region_sel, cedula, puesto, nuevo_estado_masivo))
+    
+                            conn.commit()
+                            st.session_state.msg_ok = f"✅ {len(bloques_seleccionados)} bloque(s) actualizado(s) a '{nuevo_estado_masivo}'"
+                            st.rerun()
     # =====================================================
     # PERFIL CONTROL DE CALIDAD
     # =====================================================
