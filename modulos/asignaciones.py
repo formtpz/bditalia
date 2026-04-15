@@ -203,7 +203,7 @@ def render():
                     st.session_state.msg_ok = "✅ Autoasignación realizada correctamente"
                     st.rerun()
     
-        # --- Mostrar todas las asignaciones del operador (tabla resumen) ---
+        # --- Mostrar todas las asignaciones del operador ---
         df_asignaciones = pd.read_sql("""
             SELECT DISTINCT asignacion
             FROM asignaciones
@@ -218,9 +218,9 @@ def render():
         # Selector de asignación para trabajo masivo
         asignacion_masiva = st.selectbox("📦 Seleccione la asignación para actualización masiva", df_asignaciones["asignacion"])
     
-        # Obtener bloques de esa asignación
+        # Obtener bloques de esa asignación (incluyendo 'asignacion')
         df_bloques = pd.read_sql("""
-            SELECT bloque, estado_actual, cantidad_rechazos, cantidad_aprobaciones
+            SELECT asignacion, bloque, estado_actual, cantidad_rechazos, cantidad_aprobaciones
             FROM asignaciones
             WHERE operador_actual = %s AND region = %s AND asignacion = %s
             ORDER BY bloque
@@ -239,15 +239,12 @@ def render():
             st.info("No hay bloques para procesar")
             return
     
-        # Permitir elegir un estado para filtrar los bloques a actualizar
         estado_filtro = st.selectbox("🔍 Filtrar bloques por estado actual", estados_disponibles)
-    
         bloques_filtrados = df_bloques[df_bloques["estado_actual"] == estado_filtro]
         if bloques_filtrados.empty:
             st.info(f"No hay bloques con estado '{estado_filtro}'")
             return
     
-        # Checkboxes para seleccionar varios bloques
         seleccion = {}
         st.write(f"**Bloques en estado '{estado_filtro}':**")
         for _, row in bloques_filtrados.iterrows():
@@ -257,8 +254,7 @@ def render():
         if not bloques_seleccionados:
             st.info("Seleccione al menos un bloque para actualizar")
         else:
-            # Determinar posibles nuevos estados según el estado común
-            estado_comun = estado_filtro  # todos los seleccionados tienen este estado
+            estado_comun = estado_filtro
             if estado_comun.startswith("rechazado"):
                 opciones_estado = ["corregido"]
             elif estado_comun == "asignado":
@@ -273,7 +269,6 @@ def render():
             else:
                 nuevo_estado_masivo = st.selectbox("🚀 Nuevo estado para los bloques seleccionados", opciones_estado)
                 if st.button("💾 Aplicar cambio masivo"):
-                    # Actualizar cada bloque seleccionado
                     for bloque in bloques_seleccionados:
                         if nuevo_estado_masivo == "corregido":
                             cur.execute("""
@@ -289,7 +284,6 @@ def render():
                                 WHERE asignacion = %s AND bloque = %s AND region = %s
                             """, (nuevo_estado_masivo, asignacion_masiva, int(bloque), region_sel))
     
-                        # Insertar en historial
                         cur.execute("""
                             INSERT INTO asignaciones_historial
                             (asignacion, bloque, region, usuario, puesto, proceso, estado)
@@ -300,12 +294,13 @@ def render():
                     st.session_state.msg_ok = f"✅ {len(bloques_seleccionados)} bloque(s) actualizado(s) a '{nuevo_estado_masivo}'"
                     st.rerun()
     
-        # --- Mantener también la opción individual (por si acaso) ---
+        # --- Modificación individual (opcional) ---
         st.divider()
         st.write("### Modificación individual (opcional)")
+        # Filtrar bloques con estados que permiten transición
         opciones_individuales = df_bloques[df_bloques["estado_actual"].isin(["asignado", "proceso", "rechazado", "corregido"])].copy()
         if not opciones_individuales.empty:
-            opciones_individuales["label"] = opciones_individuales["asignacion"].astype(str) + " - Bloque " + opciones_individuales["bloque"].astype(str)
+            opciones_individuales["label"] = opciones_individuales["asignacion"] + " - Bloque " + opciones_individuales["bloque"].astype(str)
             seleccionado = st.selectbox("Seleccione un bloque para cambiar individualmente", opciones_individuales["label"])
             fila = opciones_individuales[opciones_individuales["label"] == seleccionado].iloc[0]
             estado_actual = fila["estado_actual"]
