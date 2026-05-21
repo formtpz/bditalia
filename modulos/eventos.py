@@ -47,7 +47,7 @@ def render():
         tipos_evento = [
             (id_, nombre)
             for id_, nombre in tipos_evento
-            if id_ in (3, 16)
+            if id_ in (3, 16, 17)
         ]
 
     if not tipos_evento:
